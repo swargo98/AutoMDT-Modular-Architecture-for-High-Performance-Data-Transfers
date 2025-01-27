@@ -2,10 +2,10 @@
 
 configurations = {
     "receiver": {
-        "host": "10.1.2.3",
+        "host": "127.0.0.1",
         "port": 50022
     },
-    "data_dir": "/data/arif/",
+    "data_dir": "src/",
     "method": "mgd", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
     "bayes": {
         "initial_run": 3,

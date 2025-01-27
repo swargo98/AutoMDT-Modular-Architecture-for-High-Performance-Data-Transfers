@@ -189,6 +189,20 @@ def io_probing(params):
     else:
         return score_value
 
+# final_state = SimulatorState((self.sender_buffer_capacity-self.sender_buffer_in_use)/self.sender_buffer_capacity,
+#                                     (self.receiver_buffer_capacity-self.receiver_buffer_in_use)/self.receiver_buffer_capacity,
+#                                     (self.read_throughput - self.prev_read_throughput)/self.prev_read_throughput if self.prev_read_throughput > 0 else 0,
+#                                     (self.write_throughput - self.prev_write_throughput)/self.prev_write_throughput if self.prev_write_throughput > 0 else 0,
+#                                     (self.network_throughput - self.prev_network_throughput)/self.prev_network_throughput if self.prev_network_throughput > 0 else 0,
+#                                     (read_thread - self.read_thread)/self.read_thread,
+#                                     (write_thread - self.write_thread)/self.write_thread,
+#                                     (network_thread - self.network_thread)/self.network_thread,
+#                                     read_thread,
+#                                     write_thread,
+#                                     network_thread,
+#                                     (reward-self.reward)/self.reward if self.reward > 0 else 0
+#                                     )
+
 
 def run_optimizer(probing_func):
     while start.value == 0:
