@@ -77,11 +77,14 @@ def move_file(process_id):
 
 
 def receive_file(sock, process_id):
+    print(f"Receiver Thread: {process_id}")
     while transfer_done.value != 1:
         try:
             client, address = sock.accept()
+            print(f"Connected to {address}")
             logger.debug("{u} connected".format(u=address))
             used = get_dir_size(logger,tmpfs_dir)
+            print(f"Shared Memory -- Used: {used}GB")
             while used > memory_limit:
                 time.sleep(0.1)
 
@@ -188,28 +191,114 @@ def io_probing(params):
         return exit_signal
     else:
         return score_value
+    
+def io_probing_ppo(params):
+    global io_throughput_logs
+    if transfer_done.value == 1 and move_complete.value >= transfer_complete.value:
+        return exit_signal, None
 
-# final_state = SimulatorState((self.sender_buffer_capacity-self.sender_buffer_in_use)/self.sender_buffer_capacity,
-#                                     (self.receiver_buffer_capacity-self.receiver_buffer_in_use)/self.receiver_buffer_capacity,
-#                                     (self.read_throughput - self.prev_read_throughput)/self.prev_read_throughput if self.prev_read_throughput > 0 else 0,
-#                                     (self.write_throughput - self.prev_write_throughput)/self.prev_write_throughput if self.prev_write_throughput > 0 else 0,
-#                                     (self.network_throughput - self.prev_network_throughput)/self.prev_network_throughput if self.prev_network_throughput > 0 else 0,
-#                                     (read_thread - self.read_thread)/self.read_thread,
-#                                     (write_thread - self.write_thread)/self.write_thread,
-#                                     (network_thread - self.network_thread)/self.network_thread,
-#                                     read_thread,
-#                                     write_thread,
-#                                     network_thread,
-#                                     (reward-self.reward)/self.reward if self.reward > 0 else 0
-#                                     )
+    params = [1 if x<1 else int(np.round(x)) for x in params]
+    logger.info("I/O -- Probing Parameters: {0}".format(params))
+
+    for i in range(len(io_process_status)):
+        io_process_status[i] = 1 if i < params[0] else 0
+
+    time.sleep(1)
+    n_time = time.time() + probing_time - 1.05
+    # time.sleep(n_time)
+    while (time.time() < n_time) and (transfer_done.value == 0 or move_complete.value < transfer_complete.value):
+        time.sleep(0.1)
+
+    thrpt = np.mean(io_throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
+    used = get_dir_size(logger, tmpfs_dir)
+    logger.info(f"Shared Memory -- Used: {used}GB")
+    logger.info("I/O Probing -- Throughput: {0}Mbps".format(np.round(thrpt)))
+
+    if transfer_done.value == 1 and move_complete.value >= transfer_complete.value:
+        return exit_signal, None
+    else:
+        return thrpt, used
+    
+import sys
+import zmq
+import threading
+from tinyrpc.protocols.jsonrpc import JSONRPCProtocol
+from tinyrpc.transports.zmq import ZmqServerTransport
+from tinyrpc.server import RPCServer
+from tinyrpc.dispatch import RPCDispatcher
+
+def start_server(max_cc, black_box_function, logger, verbose=True):
+    ctx = zmq.Context()
+    dispatcher = RPCDispatcher()
+    transport = ZmqServerTransport.create(ctx, 'tcp://127.0.0.1:5001')
+
+    rpc_server = RPCServer(
+        transport,
+        JSONRPCProtocol(),
+        dispatcher
+    )
+
+    prev_thrpt = 0
+    prev_thread = 2
+    used = get_dir_size(logger, tmpfs_dir)
+
+    curr_thrpt = 0
+    curr_thread = 2
+
+    @dispatcher.public
+    def get_state():
+        nonlocal prev_thrpt, prev_thread, used, curr_thrpt, curr_thread
+        thrpt_change = (curr_thrpt - prev_thrpt)/prev_thrpt if prev_thrpt > 0 else 0
+        thread_change = (curr_thread - prev_thread)/prev_thread if prev_thread > 0 else 0
+        free_percentage  = (memory_limit - used)/memory_limit
+        return [thrpt_change, thread_change, free_percentage, curr_thread]
+    
+    @dispatcher.public
+    def set_thread(thread):
+        nonlocal prev_thrpt, prev_thread, used, curr_thrpt, curr_thread
+        print(f"Setting Thread: {thread}")
+        prev_thread, prev_thrpt = curr_thread, curr_thrpt
+        curr_thread = thread
+        curr_thrpt, used = black_box_function([curr_thread])
+        print(f"Thread: {curr_thread}, Throughput: {curr_thrpt}")
+
+        # if curr_thrpt == exit_signal:
+        #     sys.exit(0)
+
+    @dispatcher.public
+    def get_throughput():
+        nonlocal curr_thrpt
+        if curr_thrpt == exit_signal:
+            sys.exit(0)
+        return curr_thrpt
+        
+
+    print("Server is starting...")
+    rpc_server.serve_forever()  
+
+def ppo_optimizer(max_cc, black_box_function, logger, verbose=True):
+    print("Starting PPO Server in another thread.")
+    server_thread = threading.Thread(target=start_server, args=(max_cc, black_box_function, logger, verbose), daemon=False)
+    server_thread.start()
+
+    print("PPO Server started in another thread.")
+    server_thread.join()
+
+    print("Main thread exiting.")
 
 
 def run_optimizer(probing_func):
+    print("Running Optimizer .... ")
     while start.value == 0:
         time.sleep(0.1)
 
     params = [2]
-    if configurations["method"].lower() == "hill_climb":
+    if configurations["method"].lower() == "ppo":
+        print("Running PPO Optimization .... ")
+        logger.info("Running PPO Optimization .... ")
+        ppo_optimizer(configurations["thread_limit"], io_probing_ppo, logger)
+
+    elif configurations["method"].lower() == "hill_climb":
         logger.info("Running Hill Climb Optimization .... ")
         params = hill_climb(configurations["thread_limit"], probing_func, logger)
 
@@ -391,6 +480,8 @@ if __name__ == '__main__':
     memory_limit = min(50, free/2)
     num_workers = configurations['thread_limit']
 
+    print(f"Memory Limit: {memory_limit}GB")
+
     sock = socket.socket()
     sock.bind((HOST, PORT))
     sock.listen(num_workers)
@@ -400,10 +491,14 @@ if __name__ == '__main__':
         p.daemon = True
         p.start()
 
+    print(f"Receiver Started at {HOST}:{PORT}: {num_workers} Threads")
+
     io_workers = [mp.Process(target=move_file, args=(i,)) for i in range(num_workers)]
     for p in io_workers:
         p.daemon = True
         p.start()
+
+    print(f"File Mover Threads Started")
 
     network_report_thread = Thread(target=report_network_throughput)
     network_report_thread.start()
@@ -413,6 +508,8 @@ if __name__ == '__main__':
 
     io_optimizer_thread = Thread(target=run_optimizer, args=(io_probing,))
     io_optimizer_thread.start()
+
+    print(f"Optimizer Thread Started")
 
     # transfer_process_status[0] = 1
     # while sum(transfer_process_status)>0:
@@ -427,6 +524,8 @@ if __name__ == '__main__':
         if p.is_alive():
             p.terminate()
             p.join(timeout=0.1)
+
+    print(f"Transfer Completed!")
 
     while move_complete.value < transfer_complete.value:
         time.sleep(0.1)

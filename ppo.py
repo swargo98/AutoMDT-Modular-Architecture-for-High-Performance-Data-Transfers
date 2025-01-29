@@ -24,6 +24,8 @@ def load_model(agent, filename_policy, filename_value):
     agent.value_function.load_state_dict(torch.load(filename_value))
     print("Model loaded successfully.")
 
+exit_signal = 10 ** 10
+
 import copy
 class SimulatorState:
     def __init__(
@@ -110,12 +112,14 @@ class SimulatorState:
         return np.concatenate([current_state, history])
 
 class NetworkOptimizationEnv(gym.Env):
-    def __init__(self, history_length=5):
+    def __init__(self, black_box_function, state, history_length=5):
         super(NetworkOptimizationEnv, self).__init__()
         self.thread_limits = [1, 100]  # Threads can be between 1 and 10
 
         self.action_space = spaces.MultiDiscrete([5, 5, 5])
         obs_dim = 5 + 7 * history_length
+
+        print(f"Observation space dimension: {obs_dim}")
         
         # Define an unbounded Box of shape (obs_dim,)
         self.observation_space = spaces.Box(
@@ -126,14 +130,9 @@ class NetworkOptimizationEnv(gym.Env):
         )
 
         self.history_length = history_length
+        self.get_utility_value = black_box_function
 
-        ################################# QUERY STATE FROM RECEIVER
-
-        self.state = SimulatorState(
-            sender_buffer_remaining_capacity=self.simulator.sender_buffer_capacity,
-            receiver_buffer_remaining_capacity=self.simulator.receiver_buffer_capacity,
-            history_length=history_length
-        )
+        self.state = state
         self.max_steps = 5
         self.current_step = 0
 
@@ -149,17 +148,22 @@ class NetworkOptimizationEnv(gym.Env):
         net_delta = deltas_map[net_index]
         write_delta = deltas_map[write_index]
 
-        ################################# QUERY STATE FROM RECEIVER
 
         # 2) Compute new thread counts
-        new_read = min(max(self.simulator.read_thread + read_delta, self.thread_limits[0]), self.thread_limits[1])
-        new_network = min(max(self.simulator.network_thread + net_delta, self.thread_limits[0]), self.thread_limits[1])
-        new_write = min(max(self.simulator.write_thread + write_delta, self.thread_limits[0]), self.thread_limits[1])
+        new_read = min(max(self.state.read_thread + read_delta, self.thread_limits[0]), self.thread_limits[1])
+        new_network = min(max(self.state.network_thread + net_delta, self.thread_limits[0]), self.thread_limits[1])
+        new_write = min(max(self.state.write_thread + write_delta, self.thread_limits[0]), self.thread_limits[1])
         new_thread_counts = [new_read, new_network, new_write]
 
         # Compute utility and update state
-        ################################# QUERY REWARD FROM SENDER
-        utility, new_state, grads, bottleneck_idx = self.simulator.get_utility_value(new_thread_counts)
+        print(f"New Thread Counts: {new_thread_counts}")
+        utility, new_state, grads, bottleneck_idx = self.get_utility_value(new_thread_counts)
+        print(f"Utility: {utility}")
+
+        if utility == exit_signal:
+            return self.state.to_array(), exit_signal, grads, bottleneck_idx, True, {}
+
+
         self.state.update_state(new_state)
 
         # Penalize actions that hit thread limits
@@ -188,20 +192,10 @@ class NetworkOptimizationEnv(gym.Env):
         return self.state.to_array(), reward, grads, bottleneck_idx, done, {}
 
     def reset(self, simulator=None):
-        ################################# NEED FIXING. MAY NEED TO STORE THE CURERNT THRERAD COUTNS IN THE CLASS
-        self.state = SimulatorState(
-            sender_buffer_remaining_capacity=self.simulator.sender_buffer_capacity,
-            receiver_buffer_remaining_capacity=self.simulator.receiver_buffer_capacity,
-            read_thread=self.simulator.read_thread,
-            network_thread=self.simulator.network_thread,
-            write_thread=self.simulator.write_thread,
-            history_length=self.history_length
-        )
         
         self.current_step = 0
         self.trajectory = [self.state.copy()]
 
-        # Return initial state as NumPy array
         return self.state.to_array()
 
 class ResidualBlock(nn.Module):
@@ -326,6 +320,7 @@ class PPOAgentDiscrete:
         self.mini_batch_size = mini_batch_size
 
     def select_action(self, state, is_inference=False):
+        print(f"Select Action: {state}")
         state = torch.FloatTensor(state).unsqueeze(0).to(device)   # [1, obs_dim]
         logits, bottlenecks, gradients = self.policy_old(state)
             
@@ -487,13 +482,22 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
     memory = Memory()
     total_rewards = []
     for episode in tqdm(range(1, max_episodes + 1), desc="Episodes"):
+        print(f"Episode {episode}")
         state = env.reset()
         episode_reward = 0
+        exit_flag = False
         for t in range(env.max_steps):
+            print(f"Step {t}")
             thread_changes, logprob_scalar, action_indices, _, _ = agent.select_action(state)
+            print(f"Thread Changes: {thread_changes}")
         
             # Step environment with thread_changes
             next_state, reward, grads, bottleneck_idx, done, _ = env.step(thread_changes)
+            print(f"Reward: {reward}")
+
+            if reward == exit_signal:
+                exit_flag = True
+                break
 
             memory.states.append(torch.FloatTensor(state).to(device))
             memory.actions.append(action_indices)       # This is crucial! action_indices in [0..4]
@@ -508,7 +512,8 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
             if done:
                 break
 
-        agent.update(memory)
+        if not done:
+            agent.update(memory)
 
         # print(f"Episode {episode}\tLast State: {state}\tReward: {reward}")
         with open('episode_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', 'a') as f:
@@ -522,6 +527,8 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
         if episode % 1000 == 0:
             save_model(agent, "models/training_dicrete_w_history_minibatch_mlp_deepseek_v8_policy_"+ str(episode) +".pth", "models/training_dicrete_w_history_minibatch_mlp_deepseek_v8_value_"+ str(episode) +".pth")
             print("Model saved successfully.")
+        if exit_flag:
+            break
     return total_rewards
 
 def plot_rewards(rewards, title, pdf_file):
@@ -656,40 +663,3 @@ def plot_throughputs_csv(throughputs_file='throughputs_dicrete_w_history_minibat
         f.write(f"{np.mean(df['Network Throughput'])}\n")
         f.write(f"{np.mean(df['Write Throughput'])}\n")
 
-
-
-import os
-
-if __name__ == '__main__':
-    history_length = 3
-    obs_dim = 5 + 7 * history_length
-
-    if os.path.exists('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv'):
-        os.remove('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv')
-    if os.path.exists('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv'):
-        os.remove('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv')
-
-    env = NetworkOptimizationEnv(history_length=history_length)
-    agent = PPOAgentDiscrete(
-        state_dim=obs_dim,
-        lr=1e-4,
-        eps_clip=0.1,
-        K_epochs=10,         # e.g., 10 epochs
-        mini_batch_size=32   # e.g., batch size of 32
-    )
-
-    policy_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v8_policy_400000.pth'
-    value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v8_value_400000.pth'
-    optimals = [7, 7, 7, 7000]
-
-    print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
-    load_model(agent, "/home/rs75c/Falcon-File-Transfer-Optimizer/models/"+policy_model, "/home/rs75c/Falcon-File-Transfer-Optimizer/models/"+value_model)
-    print("Model loaded successfully.")
-
-    ################################# WHEN TO STOP
-
-    rewards = train_ppo(env, agent, max_episodes=100)
-
-    plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.pdf')
-    plot_threads_csv('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'threads/inference_threads_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png')
-    plot_throughputs_csv('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'throughputs/inference_throughputs_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png') 

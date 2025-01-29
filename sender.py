@@ -12,6 +12,8 @@ from threading import Thread
 from config_sender import configurations
 from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, gradient_multivariate
 from utils import tcp_stats, run, available_space, get_dir_size
+from ppo import SimulatorState, NetworkOptimizationEnv, PPOAgentDiscrete, load_model, train_ppo, plot_rewards, plot_threads_csv, plot_throughputs_csv
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
@@ -88,13 +90,16 @@ def copy_file(process_id):
 
 
 def transfer_file(process_id):
+    print("Transfer File")
     while rQueue or tQueue:
+        # print(f"Transfer File. Status: {transfer_process_status[process_id]}")
         if transfer_process_status[process_id] == 1:
             try:
                 logger.debug(f'Starting TCP Socket Thread: {process_id}')
                 sock = socket.socket()
                 sock.settimeout(3)
                 sock.connect((HOST, PORT))
+                print(f"Connected {HOST}:{PORT}")
             except socket.timeout as e:
                 # logger.exception(e)
                 continue
@@ -271,6 +276,280 @@ def io_probing(params):
     else:
         return score_value
 
+# def get_utility_value(self, threads):
+        
+#         final_state = SimulatorState((self.sender_buffer_capacity-self.sender_buffer_in_use)/self.sender_buffer_capacity,
+#                                     (self.receiver_buffer_capacity-self.receiver_buffer_in_use)/self.receiver_buffer_capacity,
+#                                     (self.read_throughput - self.prev_read_throughput)/self.prev_read_throughput if self.prev_read_throughput > 0 else 0,
+#                                     (self.write_throughput - self.prev_write_throughput)/self.prev_write_throughput if self.prev_write_throughput > 0 else 0,
+#                                     (self.network_throughput - self.prev_network_throughput)/self.prev_network_throughput if self.prev_network_throughput > 0 else 0,
+#                                     (read_thread - self.read_thread)/self.read_thread,
+#                                     (write_thread - self.write_thread)/self.write_thread,
+#                                     (network_thread - self.network_thread)/self.network_thread,
+#                                     read_thread,
+#                                     write_thread,
+#                                     network_thread,
+#                                     (reward-self.reward)/self.reward if self.reward > 0 else 0
+#                                     )
+
+
+#         throughputs = [self.read_throughput, 
+#                       self.network_throughput,
+#                       self.write_throughput]
+#         bottleneck_idx = np.argmin(throughputs)
+
+#         return reward, final_state, grads, bottleneck_idx
+
+import zmq
+
+from tinyrpc.protocols.jsonrpc import JSONRPCProtocol
+from tinyrpc.transports.zmq import ZmqClientTransport
+from tinyrpc import RPCClient
+
+def set_write_thread(write_thread):
+    ctx = zmq.Context()
+    rpc_client = RPCClient(
+        JSONRPCProtocol(),
+        ZmqClientTransport.create(ctx, 'tcp://127.0.0.1:5001')
+    )
+
+    remote_server = rpc_client.get_proxy()
+    remote_server.set_thread(write_thread)
+
+def get_write_state():
+    ctx = zmq.Context()
+    rpc_client = RPCClient(
+        JSONRPCProtocol(),
+        ZmqClientTransport.create(ctx, 'tcp://127.0.0.1:5001')
+    )
+
+    remote_server = rpc_client.get_proxy()
+    result = remote_server.get_state()
+    print("Server answered:", result)
+    return result
+
+def get_write_throughput():
+    ctx = zmq.Context()
+    rpc_client = RPCClient(
+        JSONRPCProtocol(),
+        ZmqClientTransport.create(ctx, 'tcp://127.0.0.1:5001')
+    )
+
+    remote_server = rpc_client.get_proxy()
+    result = remote_server.get_throughput()
+    print("Server answered:", result)
+    return result
+
+class PPOOptimizer:
+    def __init__(self):
+        self.prev_read_throughput = 0
+        self.prev_network_throughput = 0
+        self.prev_read_thread = 2
+        self.prev_network_thread = 2
+        self.prev_write_thread = 2
+        self.prev_reward = 0
+        self.used_disk = get_dir_size(logger, tmpfs_dir)
+        self.current_read_thread = 2
+        self.current_network_thread = 2
+        self.current_write_thread = 2
+        self.current_read_throughput = 0
+        self.current_network_throughput = 0
+        self.current_reward = 0
+
+        oneGB = 1024
+        self.optimal_read_thread = 12
+        self.optimal_network_thread = 12
+        self.optimal_write_thread = 12
+        self.stable_bw = 12 * oneGB
+
+        self.utility_read = 0
+        self.utility_network = 0
+        self.utility_write = 0
+
+        self.history_length = 3
+        self.obs_dim = 5 + 7 * self.history_length
+
+        print("Optimizing with PPO...")
+
+        if os.path.exists('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv'):
+            os.remove('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv')
+        if os.path.exists('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv'):
+            os.remove('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv')
+
+        state = self.get_state(is_start=True)
+
+        print("Creating Environment")
+
+        self.env = NetworkOptimizationEnv(black_box_function=self.get_reward, state=state, history_length=self.history_length)
+        self.agent = PPOAgentDiscrete(
+            state_dim=self.obs_dim,
+            lr=1e-4,
+            eps_clip=0.1,
+            K_epochs=10,         # e.g., 10 epochs
+            mini_batch_size=32   # e.g., batch size of 32
+        )
+
+        policy_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v8_policy_400000.pth'
+        value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v8_value_400000.pth'
+        optimals = [7, 7, 7, 7000]
+
+        print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
+        load_model(self.agent, "/home/rs75c/Falcon-File-Transfer-Optimizer/models/"+policy_model, "/home/rs75c/Falcon-File-Transfer-Optimizer/models/"+value_model)
+        print("Model loaded successfully.")
+
+        ################################# WHEN TO STOP
+
+        rewards = train_ppo(self.env, self.agent, max_episodes=100)
+
+        plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.pdf')
+        plot_threads_csv('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'threads/inference_threads_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png')
+        plot_throughputs_csv('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'throughputs/inference_throughputs_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png') 
+
+    def get_state(self, is_start=False):
+        print("Getting State")
+        write_thrpt_change, write_thread_change, write_free_percentage, write_thread = 0, 0, 1, 2
+        if not is_start:
+            write_thrpt_change, write_thread_change, write_free_percentage, write_thread = get_write_state()
+        read_thrpt_change = (self.current_read_throughput - self.prev_read_throughput)/self.prev_read_throughput if self.prev_read_throughput > 0 else 0
+        network_thrpt_change = (self.current_network_throughput - self.prev_network_throughput)/self.prev_network_throughput if self.prev_network_throughput > 0 else 0
+        read_thread_change = (self.current_read_thread - self.prev_read_thread)/self.prev_read_thread if self.prev_read_thread > 0 else 0
+        network_thread_change = (self.current_network_thread - self.prev_network_thread)/self.prev_network_thread if self.prev_network_thread > 0 else 0
+        reward_change = (self.current_reward - self.prev_reward)/self.prev_reward if self.prev_reward > 0 else 0
+        free_disk_percentage = (memory_limit - self.used_disk)/memory_limit
+
+        print(f"State -- Read: {self.current_read_thread}, Network: {self.current_network_thread}, Write: {write_thread}")
+
+        state = SimulatorState(sender_buffer_remaining_capacity=free_disk_percentage,
+                               receiver_buffer_remaining_capacity=write_free_percentage,
+                               read_throughput_change=read_thrpt_change,
+                               network_throughput_change=network_thrpt_change,
+                               write_throughput_change=write_thrpt_change,
+                               read_thread_change=read_thread_change,
+                               write_thread_change=write_thread_change,
+                               network_thread_change=network_thread_change,
+                               read_thread=self.current_read_thread,
+                               write_thread=write_thread,
+                               network_thread=self.current_network_thread,
+                               rewards_change=reward_change,
+                               history_length=self.history_length
+                               )
+        
+        return state
+
+    def ppo_probing(self, params):
+        print("PPO Probing")
+        global io_throughput_logs, network_throughput_logs, exit_signal
+        # global io_weight, net_weight
+
+        if not rQueue and not tQueue:
+            return [exit_signal, None, None]
+        
+        read_thread, network_thread, write_thread = map(int, params)
+
+        write_thread_set = Thread(target=set_write_thread, args=(write_thread,), daemon=False)
+        write_thread_set.start()
+
+        logger.info("Probing Parameters - [Read, Network, Write]: {0}{1}{2}".format(read_thread, network_thread, write_thread))
+
+        for i in range(len(transfer_process_status)):
+            transfer_process_status[i] = 1 if i < network_thread else 0
+
+        if params[1]:
+            for i in range(len(io_process_status)):
+                io_process_status[i] = 1 if (i < read_thread and rQueue) else 0
+
+        time.sleep(1)
+
+        # Before
+        prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
+        n_time = time.time() + probing_time - 1.05
+        # used_before = get_dir_size(logger, tmpfs_dir)
+        # Sleep
+        # time.sleep(n_time)
+        while (time.time() < n_time) and (rQueue or tQueue):
+            time.sleep(0.1)
+
+        # After
+        curr_sc, curr_rc = tcp_stats(RCVR_ADDR, logger)
+        sc, rc = curr_sc - prev_sc, curr_rc - prev_rc
+        logger.debug("TCP Segments >> Send Count: {0}, Retrans Count: {1}".format(sc, rc))
+        used_disk = get_dir_size(logger, tmpfs_dir)
+
+        write_thread_set.join()
+
+        ## Network Score
+        net_thrpt = np.round(np.mean(network_throughput_logs[-2:])) if len(network_throughput_logs) > 2 else 0
+        lr, B, K = 0, int(configurations["B"]), float(configurations["K"])
+
+        ## I/O score
+        io_thrpt = 0
+        if read_thread and rQueue:
+            io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
+        else:
+            return [exit_signal, None, None]   
+
+        logger.info(f"Shared Memory -- Used: {used_disk}GB")
+        logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
+
+        if not rQueue and not tQueue:
+            return [exit_signal, None, None]
+
+        logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps")
+        return [io_thrpt, net_thrpt, used_disk] #score_value
+        # return (net_score_value+io_score_value) / 2
+
+    def get_reward(self, params):
+        io_thrpt, net_thrpt, used_disk = self.ppo_probing(params)
+        read_thread, network_thread, write_thread = map(int, params)
+        write_thrpt = get_write_throughput()
+
+        print(f"Throughputs -- I/O: {io_thrpt}, Network: {net_thrpt}, Write: {write_thrpt}")
+
+        if io_thrpt == exit_signal or write_thrpt == exit_signal:
+            return exit_signal, None, None, None
+
+        self.prev_read_thread = self.current_read_thread
+        self.prev_network_thread = self.current_network_thread
+        self.prev_write_thread = self.current_write_thread
+        self.prev_read_throughput = self.current_read_throughput
+        self.prev_network_throughput = self.current_network_throughput
+        self.prev_reward = self.current_reward
+
+        self.current_read_thread = read_thread
+        self.current_network_thread = network_thread
+        self.current_write_thread = write_thread
+        self.current_read_throughput = io_thrpt
+        self.current_network_throughput = net_thrpt
+        self.used_disk = used_disk
+
+        utility_read = (io_thrpt/self.K ** read_thread)
+        utility_network = (net_thrpt/self.K ** network_thread)
+        utility_write = (write_thrpt/self.K ** write_thread)
+
+        throughput_reward = ((io_thrpt + net_thrpt + write_thrpt)/3) / self.stable_bw
+        thread_penalty = (read_thread/self.optimal_read_thread - 1)**2 + (network_thread/self.optimal_network_thread - 1)**2 + (write_thread/self.optimal_write_thread - 1)**2
+        reward = throughput_reward - 0.3 * thread_penalty
+        self.current_reward = reward
+
+
+        read_grad = (utility_read-self.utility_read)/(read_thread-self.prev_read_thread) if (read_thread-self.prev_read_thread) > 0 else 0
+        network_grad = (utility_network-self.utility_network)/(network_thread-self.prev_network_thread) if (network_thread-self.prev_network_thread) > 0 else 0
+        write_grad = (utility_write-self.utility_write)/(write_thread-self.prev_write_thread) if (write_thread-self.prev_write_thread) > 0 else 0
+        grads = [read_grad, network_grad, write_grad]
+        grads = np.array(grads, dtype=np.float32)
+
+        self.utility_read = utility_read
+        self.utility_network = utility_network
+        self.utility_write = utility_write
+
+        throughputs = [io_thrpt, net_thrpt, write_thrpt]
+        bottleneck_idx = np.argmin(throughputs)
+        final_state = self.get_state()
+
+        return reward, final_state, grads, bottleneck_idx
+        
+
+
 
 def multi_params_probing(params):
     global io_throughput_logs, network_throughput_logs, exit_signal
@@ -366,7 +645,11 @@ def run_optimizer(probing_func):
     params = [2,2]
 
     if configurations["mp_opt"]:
-        if configurations["method"].lower() == "cg":
+        if configurations["method"].lower() == "ppo":
+            logger.info("Running PPO Optimization .... ")
+            optimizer = PPOOptimizer()
+            # params = optimizer.ppo_probing(params)
+        elif configurations["method"].lower() == "cg":
             logger.info("Running Conjugate Optimization .... ")
             params = cg_opt(configurations["mp_opt"], probing_func)
 
@@ -474,6 +757,8 @@ if __name__ == '__main__':
 
     net_cc = configurations["max_cc"]["network"]
     net_cc = net_cc if net_cc>0 else mp.cpu_count()
+
+    print(f"Network CC: {net_cc}")
 
     io_cc = configurations["max_cc"]["io"]
     io_cc = io_cc if io_cc>0 else mp.cpu_count()
