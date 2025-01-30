@@ -22,6 +22,7 @@ def move_file(process_id):
             logger.debug(f'Starting File Mover Thread: {process_id}')
             try:
                 fname = mQueue.pop()
+                print(f"Process id: {process_id}; Moving File: {fname}")
                 fd = os.open(root_dir+fname, os.O_CREAT | os.O_RDWR)
                 block_size = chunk_size
                 if io_limit > 0:
@@ -35,12 +36,15 @@ def move_file(process_id):
                     chunk, offset = ff.read(block_size), 0
                     if fname in io_file_offsets:
                         offset = int(io_file_offsets[fname])
+                        print('io_file_offsets')
+                        print(np.sum(io_file_offsets.values()))
 
                     while chunk and io_process_status[process_id] != 0:
                         os.lseek(fd, offset, os.SEEK_SET)
                         os.write(fd, chunk)
                         offset += len(chunk)
                         io_file_offsets[fname] = offset
+                        # print(f"Filename: {fname}; Offset: {offset}")
                         # logger.debug((fname, offset))
                         if io_limit > 0:
                             second_data_count += len(chunk)
@@ -85,6 +89,7 @@ def receive_file(sock, process_id):
             logger.debug("{u} connected".format(u=address))
             used = get_dir_size(logger,tmpfs_dir)
             print(f"Shared Memory -- Used: {used}GB")
+            print(f"Memory Limit: {memory_limit}GB")
             while used > memory_limit:
                 time.sleep(0.1)
 
@@ -133,6 +138,7 @@ def receive_file(sock, process_id):
                             chunk = client.recv(min(chunk_size, to_rcv))
                         else:
                             logger.debug(f"Socket :: {filename}")
+                            print(f"Receive Done 137: {filename}")
                             transfer_complete.value += 1
                             io_file_offsets[filename] = 0
                             mQueue.append(filename)
@@ -140,6 +146,7 @@ def receive_file(sock, process_id):
                     os.close(fd)
 
                     if rq_size == 0 and tq_size == 0:
+                        print(f"Transfer Done 143: {filename}")
                         transfer_done.value = 1
                 else:
                     chunk = client.recv(chunk_size)
@@ -262,17 +269,22 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
         curr_thrpt, used = black_box_function([curr_thread])
         print(f"Thread: {curr_thread}, Throughput: {curr_thrpt}")
 
-        # if curr_thrpt == exit_signal:
-        #     sys.exit(0)
-
     @dispatcher.public
     def get_throughput():
         nonlocal curr_thrpt
-        if curr_thrpt == exit_signal:
-            sys.exit(0)
         return curr_thrpt
-        
 
+    def _delayed_exit():
+        """Wait briefly, then force a process exit."""
+        time.sleep(0.1)
+        sys.exit(0)
+        
+    @dispatcher.public
+    def exit():
+        # Return immediately to client to avoid blocking them
+        threading.Thread(target=_delayed_exit).start()
+        print("Exiting Server")
+    
     print("Server is starting...")
     rpc_server.serve_forever()  
 
@@ -336,6 +348,7 @@ def report_network_throughput():
 
         if time_since_begining>15:
             if sum(throughput_logs[-15:]) == 0:
+                print("Network Done! 340")
                 transfer_done.value  = 1
                 break
 
@@ -370,7 +383,8 @@ def report_io_throughput():
 
         if time_since_begining>15:
             if sum(io_throughput_logs[-15:]) == 0:
-                transfer_done.value = 1
+                print("I/O Done! 374")
+                # transfer_done.value = 1
                 move_complete.value = transfer_complete.value
                 break
 
@@ -382,6 +396,12 @@ def report_io_throughput():
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
             previous_time, previous_total = time_since_begining, total_bytes
             io_throughput_logs.append(curr_thrpt)
+
+            print('io_file_offsets')
+            print(np.sum(io_file_offsets.values()))
+
+
+            logger.info("Total I/O: {0}".format(total_bytes))
 
             logger.info("I/O Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
                 time_since_begining, curr_thrpt, thrpt))
@@ -477,7 +497,7 @@ if __name__ == '__main__':
         exit(1)
 
     _, free = available_space(tmpfs_dir)
-    memory_limit = min(50, free/2)
+    memory_limit = min(5, free/2)
     num_workers = configurations['thread_limit']
 
     print(f"Memory Limit: {memory_limit}GB")
@@ -525,7 +545,6 @@ if __name__ == '__main__':
             p.terminate()
             p.join(timeout=0.1)
 
-    print(f"Transfer Completed!")
 
     while move_complete.value < transfer_complete.value:
         time.sleep(0.1)
@@ -536,6 +555,7 @@ if __name__ == '__main__':
             p.terminate()
             p.join(timeout=0.1)
 
+    print(f"Transfer Completed!")
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
     logger.debug(f"Transfer Completed!")
-    exit(1)
+    sys.exit(0)

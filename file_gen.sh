@@ -2,8 +2,8 @@
 
 # Variables
 output_dir="src"       # Output directory to store the files
-file_count=100          # Number of files to create
-file_size=100           # Size of each file in MB
+file_count=1          # Number of files to create
+file_size=1000           # Size of each file in MB
 parallel_jobs=10        # Set parallel jobs to the number of CPU cores
 
 # Create the output directory if it doesn't exist

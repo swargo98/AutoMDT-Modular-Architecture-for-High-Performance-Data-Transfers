@@ -10,19 +10,19 @@ import random
 from queue import PriorityQueue
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+# print(f"Using device: {device}")
 
 def save_model(agent, filename_policy, filename_value):
     torch.save(agent.policy.state_dict(), filename_policy)
     torch.save(agent.value_function.state_dict(), filename_value)
-    print("Model saved successfully.")
+    # print("Model saved successfully.")
 
 
 def load_model(agent, filename_policy, filename_value):
     agent.policy.load_state_dict(torch.load(filename_policy))
     agent.policy_old.load_state_dict(agent.policy.state_dict())
     agent.value_function.load_state_dict(torch.load(filename_value))
-    print("Model loaded successfully.")
+    # print("Model loaded successfully.")
 
 exit_signal = 10 ** 10
 
@@ -119,7 +119,7 @@ class NetworkOptimizationEnv(gym.Env):
         self.action_space = spaces.MultiDiscrete([5, 5, 5])
         obs_dim = 5 + 7 * history_length
 
-        print(f"Observation space dimension: {obs_dim}")
+        # print(f"Observation space dimension: {obs_dim}")
         
         # Define an unbounded Box of shape (obs_dim,)
         self.observation_space = spaces.Box(
@@ -156,7 +156,7 @@ class NetworkOptimizationEnv(gym.Env):
         new_thread_counts = [new_read, new_network, new_write]
 
         # Compute utility and update state
-        print(f"New Thread Counts: {new_thread_counts}")
+        # print(f"New Thread Counts: {new_thread_counts}")
         utility, new_state, grads, bottleneck_idx = self.get_utility_value(new_thread_counts)
         print(f"Utility: {utility}")
 
@@ -320,7 +320,7 @@ class PPOAgentDiscrete:
         self.mini_batch_size = mini_batch_size
 
     def select_action(self, state, is_inference=False):
-        print(f"Select Action: {state}")
+        # print(f"Select Action: {state}")
         state = torch.FloatTensor(state).unsqueeze(0).to(device)   # [1, obs_dim]
         logits, bottlenecks, gradients = self.policy_old(state)
             
@@ -429,15 +429,17 @@ class PPOAgentDiscrete:
                 # Actor loss: negative of clipped surrogate, plus value loss, minus entropy bonus
                 actor_loss  = -torch.min(surr1, surr2).mean()
 
+                subset_bottleneck_true = [memory.bottleneck_true[i] for i in mb_indices]
+                subset_grad_true       = [memory.grad_true[i]       for i in mb_indices]
+
                 bottleneck_loss = torch.nn.functional.cross_entropy(
-                    bottlenecks, 
-                    torch.tensor(memory.bottleneck_true).to(device)
+                    bottlenecks,  # shape [MB, 3]
+                    torch.tensor(subset_bottleneck_true).to(device)  # shape [MB]
                 )
-                
-                # Gradient estimation loss
+
                 grad_loss = torch.nn.functional.mse_loss(
-                    gradients,
-                    torch.tensor(memory.grad_true).to(device)
+                    gradients,     # shape [MB, 3]
+                    torch.tensor(subset_grad_true).to(device)  # shape [MB, 3]
                 )
                 
                 # Combined loss
@@ -482,14 +484,14 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
     memory = Memory()
     total_rewards = []
     for episode in tqdm(range(1, max_episodes + 1), desc="Episodes"):
-        print(f"Episode {episode}")
+        # print(f"Episode {episode}")
         state = env.reset()
         episode_reward = 0
         exit_flag = False
         for t in range(env.max_steps):
             print(f"Step {t}")
             thread_changes, logprob_scalar, action_indices, _, _ = agent.select_action(state)
-            print(f"Thread Changes: {thread_changes}")
+            # print(f"Thread Changes: {thread_changes}")
         
             # Step environment with thread_changes
             next_state, reward, grads, bottleneck_idx, done, _ = env.step(thread_changes)
@@ -520,15 +522,9 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
                 f.write(f"Episode {episode}, Last State: {np.round(state[-3:])}, Reward: {reward}\n")
 
         memory.clear()
-        total_rewards.append(episode_reward)
-        if episode % 100 == 0:
-            avg_reward = np.mean(total_rewards[-100:])
-            print(f"Episode {episode}\tAverage Reward: {avg_reward:.2f}")
-        if episode % 1000 == 0:
-            save_model(agent, "models/training_dicrete_w_history_minibatch_mlp_deepseek_v8_policy_"+ str(episode) +".pth", "models/training_dicrete_w_history_minibatch_mlp_deepseek_v8_value_"+ str(episode) +".pth")
-            print("Model saved successfully.")
         if exit_flag:
             break
+        total_rewards.append(episode_reward)
     return total_rewards
 
 def plot_rewards(rewards, title, pdf_file):
@@ -549,7 +545,7 @@ import csv
 import pandas as pd
 
 def plot_threads_csv(threads_file='threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals = None, output_file='threads_plot.png'):
-    optimal_read, optimal_network, optimal_write = optimals
+    optimal_read, optimal_network, optimal_write, _ = optimals
     data = []
 
     # Read data from threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv
@@ -597,7 +593,7 @@ def plot_threads_csv(threads_file='threads_dicrete_w_history_minibatch_mlp_deeps
     plt.tight_layout()
     plt.savefig(output_file)
     plt.close()
-    print(f"Saved thread count plot to {output_file}")
+    # print(f"Saved thread count plot to {output_file}")
 
     # save average thread count to a file
     with open('average_threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', 'a') as f:
@@ -655,7 +651,7 @@ def plot_throughputs_csv(throughputs_file='throughputs_dicrete_w_history_minibat
     plt.tight_layout()
     plt.savefig(output_file)
     plt.close()
-    print(f"Saved throughput plot to {output_file}")
+    # print(f"Saved throughput plot to {output_file}")
 
     # save average throughput to a file
     with open('average_throughput_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', 'a') as f:

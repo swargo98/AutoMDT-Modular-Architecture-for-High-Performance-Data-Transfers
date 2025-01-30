@@ -18,6 +18,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def copy_file(process_id):
+    global rQueue, tQueue, io_process_status, io_file_offsets, file_names, file_sizes, memory_limit, io_limit, chunk_size, file_transfer
     while rQueue:
         if io_process_status[process_id] == 1:
             logger.debug(f'Starting Copying Thread: {process_id}')
@@ -27,28 +28,33 @@ def copy_file(process_id):
                     file_id, offset = rQueue.popitem()
                     if file_transfer:
                         fname = file_names[file_id]
+                        print(f"Copying 30: {fname}")
                         fd = os.open(tmpfs_dir+fname, os.O_CREAT | os.O_RDWR)
                         block_size = chunk_size
                         if io_limit > 0:
                             target, factor = io_limit, 8
                             max_speed = (target * 1024 * 1024)/8
+                            print(f"Max Speed: {max_speed}")
                             second_target, second_data_count = int(max_speed/factor), 0
                             block_size = min(block_size, second_target)
                             timer100ms = time.time()
 
                         with open(root_dir+fname, "rb") as ff:
+                            print(f"Offset 42: {offset}")
                             ff.seek(int(offset))
                             chunk = ff.read(block_size)
 
                             os.lseek(fd, int(offset), os.SEEK_SET)
                             # offset_update = time.time()
                             while chunk and io_process_status[process_id] == 1:
+                                print(f"Writing 49: {fname}")
                                 os.write(fd, chunk)
                                 offset += len(chunk)
 
                                 # Update every 100 milliseconds
                                 # if time.time()-offset_update > 0.1:
                                 io_file_offsets[file_id] = offset
+                                print(f"Offset 56: {offset}")
 
                                     # offset_update = time.time()
 
@@ -63,6 +69,7 @@ def copy_file(process_id):
 
                                 chunk = ff.read(block_size)
 
+                            print(f"Offset 71: {offset}")
                             io_file_offsets[file_id] = offset
                             if offset < file_sizes[file_id]:
                                 logger.debug(f"I/O - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
@@ -71,7 +78,9 @@ def copy_file(process_id):
                                 logger.debug(f'I/O :: {file_id}')
 
                             if offset>0 and file_id not in tQueue:
+                                print(f"Adding to tQueue: {file_id}")
                                 tQueue[file_id] = 0
+                                print (f"tQueue: {tQueue}")
 
                         os.close(fd)
                     else:
@@ -90,7 +99,7 @@ def copy_file(process_id):
 
 
 def transfer_file(process_id):
-    print("Transfer File")
+    # print("Transfer File")
     while rQueue or tQueue:
         # print(f"Transfer File. Status: {transfer_process_status[process_id]}")
         if transfer_process_status[process_id] == 1:
@@ -99,7 +108,7 @@ def transfer_file(process_id):
                 sock = socket.socket()
                 sock.settimeout(3)
                 sock.connect((HOST, PORT))
-                print(f"Connected {HOST}:{PORT}")
+                # print(f"Connected {HOST}:{PORT}")
             except socket.timeout as e:
                 # logger.exception(e)
                 continue
@@ -107,6 +116,7 @@ def transfer_file(process_id):
             while transfer_process_status[process_id] == 1:
                 try:
                     file_id, offset = tQueue.popitem()
+                    print(f"Popped File ID: {file_id}, Offset: {offset}")
 
                     if network_limit>0:
                         target, factor = network_limit, 8
@@ -325,7 +335,7 @@ def get_write_state():
 
     remote_server = rpc_client.get_proxy()
     result = remote_server.get_state()
-    print("Server answered:", result)
+    # print("Server answered:", result)
     return result
 
 def get_write_throughput():
@@ -337,8 +347,20 @@ def get_write_throughput():
 
     remote_server = rpc_client.get_proxy()
     result = remote_server.get_throughput()
-    print("Server answered:", result)
+    # print("Server answered:", result)
     return result
+
+def exit_write_process():
+    ctx = zmq.Context()
+    rpc_client = RPCClient(
+        JSONRPCProtocol(),
+        ZmqClientTransport.create(ctx, 'tcp://127.0.0.1:5001')
+    )
+
+    remote_server = rpc_client.get_proxy()
+    print("Exiting Server")
+    remote_server.exit()
+    print("Server answered: Exited")
 
 class PPOOptimizer:
     def __init__(self):
@@ -366,10 +388,12 @@ class PPOOptimizer:
         self.utility_network = 0
         self.utility_write = 0
 
+        self.K = configurations["K"]
+
         self.history_length = 3
         self.obs_dim = 5 + 7 * self.history_length
 
-        print("Optimizing with PPO...")
+        # print("Optimizing with PPO...")
 
         if os.path.exists('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv'):
             os.remove('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv')
@@ -378,7 +402,7 @@ class PPOOptimizer:
 
         state = self.get_state(is_start=True)
 
-        print("Creating Environment")
+        # print("Creating Environment")
 
         self.env = NetworkOptimizationEnv(black_box_function=self.get_reward, state=state, history_length=self.history_length)
         self.agent = PPOAgentDiscrete(
@@ -393,20 +417,18 @@ class PPOOptimizer:
         value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v8_value_400000.pth'
         optimals = [7, 7, 7, 7000]
 
-        print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
+        # print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
         load_model(self.agent, "/home/rs75c/Falcon-File-Transfer-Optimizer/models/"+policy_model, "/home/rs75c/Falcon-File-Transfer-Optimizer/models/"+value_model)
-        print("Model loaded successfully.")
-
-        ################################# WHEN TO STOP
+        # print("Model loaded successfully.")
 
         rewards = train_ppo(self.env, self.agent, max_episodes=100)
 
-        plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.pdf')
-        plot_threads_csv('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'threads/inference_threads_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png')
-        plot_throughputs_csv('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'throughputs/inference_throughputs_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png') 
+        # plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.pdf')
+        # plot_threads_csv('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'threads/inference_threads_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png')
+        # plot_throughputs_csv('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'throughputs/inference_throughputs_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png') 
 
     def get_state(self, is_start=False):
-        print("Getting State")
+        # print("Getting State")
         write_thrpt_change, write_thread_change, write_free_percentage, write_thread = 0, 0, 1, 2
         if not is_start:
             write_thrpt_change, write_thread_change, write_free_percentage, write_thread = get_write_state()
@@ -417,7 +439,7 @@ class PPOOptimizer:
         reward_change = (self.current_reward - self.prev_reward)/self.prev_reward if self.prev_reward > 0 else 0
         free_disk_percentage = (memory_limit - self.used_disk)/memory_limit
 
-        print(f"State -- Read: {self.current_read_thread}, Network: {self.current_network_thread}, Write: {write_thread}")
+        # print(f"State -- Read: {self.current_read_thread}, Network: {self.current_network_thread}, Write: {write_thread}")
 
         state = SimulatorState(sender_buffer_remaining_capacity=free_disk_percentage,
                                receiver_buffer_remaining_capacity=write_free_percentage,
@@ -437,11 +459,12 @@ class PPOOptimizer:
         return state
 
     def ppo_probing(self, params):
-        print("PPO Probing")
-        global io_throughput_logs, network_throughput_logs, exit_signal
+        # print("PPO Probing")
+        global io_throughput_logs, network_throughput_logs, exit_signal, rQueue, tQueue
         # global io_weight, net_weight
 
         if not rQueue and not tQueue:
+            print("Exiting Write 464")
             return [exit_signal, None, None]
         
         read_thread, network_thread, write_thread = map(int, params)
@@ -449,7 +472,7 @@ class PPOOptimizer:
         write_thread_set = Thread(target=set_write_thread, args=(write_thread,), daemon=False)
         write_thread_set.start()
 
-        logger.info("Probing Parameters - [Read, Network, Write]: {0}{1}{2}".format(read_thread, network_thread, write_thread))
+        logger.info("Probing Parameters - [Read, Network, Write]: {0}, {1}, {2}".format(read_thread, network_thread, write_thread))
 
         for i in range(len(transfer_process_status)):
             transfer_process_status[i] = 1 if i < network_thread else 0
@@ -483,15 +506,18 @@ class PPOOptimizer:
 
         ## I/O score
         io_thrpt = 0
-        if read_thread and rQueue:
+        if read_thread:
             io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
         else:
+            print("Exiting Write 509")
             return [exit_signal, None, None]   
 
         logger.info(f"Shared Memory -- Used: {used_disk}GB")
         logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
 
+        print (f"tQueue: {tQueue}")
         if not rQueue and not tQueue:
+            print("Exiting Write 516")
             return [exit_signal, None, None]
 
         logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps")
@@ -506,6 +532,9 @@ class PPOOptimizer:
         print(f"Throughputs -- I/O: {io_thrpt}, Network: {net_thrpt}, Write: {write_thrpt}")
 
         if io_thrpt == exit_signal or write_thrpt == exit_signal:
+            print("Exiting Write Process 521")
+            exit_write_process()
+            print("Exited Write Process 523")
             return exit_signal, None, None, None
 
         self.prev_read_thread = self.current_read_thread
@@ -648,6 +677,7 @@ def run_optimizer(probing_func):
         if configurations["method"].lower() == "ppo":
             logger.info("Running PPO Optimization .... ")
             optimizer = PPOOptimizer()
+            print("Optimizer Created")
             # params = optimizer.ppo_probing(params)
         elif configurations["method"].lower() == "cg":
             logger.info("Running Conjugate Optimization .... ")
@@ -758,7 +788,7 @@ if __name__ == '__main__':
     net_cc = configurations["max_cc"]["network"]
     net_cc = net_cc if net_cc>0 else mp.cpu_count()
 
-    print(f"Network CC: {net_cc}")
+    # print(f"Network CC: {net_cc}")
 
     io_cc = configurations["max_cc"]["io"]
     io_cc = io_cc if io_cc>0 else mp.cpu_count()
