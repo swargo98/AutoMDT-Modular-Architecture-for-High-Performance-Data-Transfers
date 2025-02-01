@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def copy_file(process_id):
-    global rQueue, tQueue, io_process_status, io_file_offsets, file_names, file_sizes, memory_limit, io_limit, chunk_size, file_transfer, file_processed
+    global rQueue, tQueue, io_process_status, io_file_offsets, file_names, file_sizes, memory_limit, io_limit, chunk_size, file_transfer, file_processed, file_copied
     while rQueue:
         if io_process_status[process_id] == 1:
             logger.debug(f'Starting Copying Thread: {process_id}')
@@ -79,6 +79,7 @@ def copy_file(process_id):
 
                             if offset>0 and file_id not in tQueue:
                                 print(f"Adding to tQueue: {file_id}")
+                                file_copied += 1
                                 tQueue[file_id] = 0
                                 print (f"tQueue: {tQueue}")
 
@@ -169,12 +170,18 @@ def transfer_file(process_id):
                             file.close()
 
                         transfer_file_offsets[file_id] = offset
-                        if offset < io_file_offsets[file_id] or file_id in rQueue:
+                        print(f"Transfer File Offset: {float(offset)}")
+                        print(f"I/O File Offset: {float(io_file_offsets[file_id])}")
+                        print(f"{rQueue}, {tQueue}")
+                        if float(offset) < float(io_file_offsets[file_id]) or file_id in rQueue:
                             logger.debug(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
+                            print(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
                             tQueue[file_id] = offset
                         else:
                             logger.debug(f'Transfer :: {file_id}!')
+                            print(f'Transfer :: {file_id}!')
                             file_processed += 1
+                            print(f"File Processed: {file_processed}")
                             if file_transfer:
                                 run(f'rm {filename}', logger)
                                 logger.debug(f'Cleanup :: {file_id}!')
@@ -288,30 +295,6 @@ def io_probing(params):
         return exit_signal
     else:
         return score_value
-
-# def get_utility_value(self, threads):
-        
-#         final_state = SimulatorState((self.sender_buffer_capacity-self.sender_buffer_in_use)/self.sender_buffer_capacity,
-#                                     (self.receiver_buffer_capacity-self.receiver_buffer_in_use)/self.receiver_buffer_capacity,
-#                                     (self.read_throughput - self.prev_read_throughput)/self.prev_read_throughput if self.prev_read_throughput > 0 else 0,
-#                                     (self.write_throughput - self.prev_write_throughput)/self.prev_write_throughput if self.prev_write_throughput > 0 else 0,
-#                                     (self.network_throughput - self.prev_network_throughput)/self.prev_network_throughput if self.prev_network_throughput > 0 else 0,
-#                                     (read_thread - self.read_thread)/self.read_thread,
-#                                     (write_thread - self.write_thread)/self.write_thread,
-#                                     (network_thread - self.network_thread)/self.network_thread,
-#                                     read_thread,
-#                                     write_thread,
-#                                     network_thread,
-#                                     (reward-self.reward)/self.reward if self.reward > 0 else 0
-#                                     )
-
-
-#         throughputs = [self.read_throughput, 
-#                       self.network_throughput,
-#                       self.write_throughput]
-#         bottleneck_idx = np.argmin(throughputs)
-
-#         return reward, final_state, grads, bottleneck_idx
 
 import zmq
 
@@ -466,7 +449,7 @@ class PPOOptimizer:
         global io_throughput_logs, network_throughput_logs, exit_signal, rQueue, tQueue, file_processed, file_count
         # global io_weight, net_weight
 
-        if not rQueue and not tQueue:
+        if file_processed == file_count:
             print("Exiting Write 464")
             return [exit_signal, None, None]
         
@@ -478,11 +461,11 @@ class PPOOptimizer:
         logger.info("Probing Parameters - [Read, Network, Write]: {0}, {1}, {2}".format(read_thread, network_thread, write_thread))
 
         for i in range(len(transfer_process_status)):
-            transfer_process_status[i] = 1 if i < network_thread else 0
+            transfer_process_status[i] = 1 if (i < network_thread and file_processed<file_count) else 0
 
         if params[1]:
             for i in range(len(io_process_status)):
-                io_process_status[i] = 1 if (i < read_thread and rQueue) else 0
+                io_process_status[i] = 1 if (i < read_thread and file_copied<file_count) else 0
 
         time.sleep(1)
 
@@ -509,17 +492,16 @@ class PPOOptimizer:
 
         ## I/O score
         io_thrpt = 0
-        if read_thread:
+        if read_thread and file_copied<file_count:
             io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
         else:
-            print("Exiting Write 509")
-            return [exit_signal, None, None]   
+            io_thrpt = 0  
 
         logger.info(f"Shared Memory -- Used: {used_disk}GB")
         logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
 
         print (f"tQueue: {tQueue}")
-        if not rQueue and not tQueue:
+        if file_processed == file_count:
             print("Exiting Write 516")
             return [exit_signal, None, None]
 
@@ -665,13 +647,18 @@ def normal_transfer(params):
     logger.info("Normal Transfer -- Probing Parameters [Network, I/O]: {0}".format(params))
 
     for i in range(len(transfer_process_status)):
-        transfer_process_status[i] = 1 if i < params[0] else 0
+        transfer_process_status[i] = 1 if (i < params[0] and file_processed<file_count) else 0
 
     for i in range(len(io_process_status)):
-        io_process_status[i] = 1 if i < params[1] else 0
+        io_process_status[i] = 1 if (i < params[1] and file_copied<file_count) else 0
+
+    print(f"Transfer Process Status 649: {transfer_process_status}")
+    print(f"File Processed: {file_processed}, File Count: {file_count}")  
 
     while file_processed < file_count:
         time.sleep(0.1)
+
+    print("Exiting Write 652")
 
 
 def run_optimizer(probing_func):
@@ -859,6 +846,7 @@ if __name__ == '__main__':
     transfer_file_offsets = mp.Array("d", [0 for i in range(file_count)])
     io_file_offsets = mp.Array("d", [0 for i in range(file_count)])
     file_processed = 0
+    file_copied = 0
     print(f"File Count: {file_count} in {root_dir}")
     # io_weight, net_weight = 1, 1
 
