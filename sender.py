@@ -772,6 +772,16 @@ def graceful_exit(signum=None, frame=None):
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
     exit(1)
 
+def debug_concurrency():
+    import threading
+    print("=== Threads ===")
+    for t in threading.enumerate():
+        print(f" - {t.name} (alive={t.is_alive()}, daemon={t.daemon})")
+
+    print("=== Processes ===")
+    for c in mp.active_children():
+        print(f" - {c.name} PID={c.pid} (alive={c.is_alive()})")
+
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, graceful_exit)
@@ -921,5 +931,6 @@ if __name__ == '__main__':
         if p.is_alive():
             p.terminate()
             p.join(timeout=0.1)
-
+    print(f'tmpfs_dir: {tmpfs_dir}')
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
+    debug_concurrency()

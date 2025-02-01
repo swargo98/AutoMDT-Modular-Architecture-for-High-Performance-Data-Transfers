@@ -165,6 +165,7 @@ def receive_file(sock, process_id):
 
 
 def io_probing(params):
+    print(f"Probing Parameters 168: {params}")
     global io_throughput_logs
     if transfer_done.value == 1 and move_complete.value >= transfer_complete.value:
         return exit_signal
@@ -180,6 +181,7 @@ def io_probing(params):
     # time.sleep(n_time)
     while (time.time() < n_time) and (transfer_done.value == 0 or move_complete.value < transfer_complete.value):
         time.sleep(0.1)
+        print(f"Probing Parameters 184: {params}")
 
     thrpt = np.mean(io_throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
     K = float(configurations["K"])
@@ -238,6 +240,7 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
     ctx = zmq.Context()
     dispatcher = RPCDispatcher()
     transport = ZmqServerTransport.create(ctx, 'tcp://127.0.0.1:5001')
+    # stop_event = threading.Event()
 
     rpc_server = RPCServer(
         transport,
@@ -275,9 +278,13 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
         return curr_thrpt
 
     def _delayed_exit():
+        # nonlocal transport
         """Wait briefly, then force a process exit."""
         time.sleep(0.1)
+        print("Exiting Server") 
+        # transport.context.term()
         sys.exit(0)
+        # os._exit(0)
         
     @dispatcher.public
     def exit():
@@ -286,7 +293,7 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
         print("Exiting Server")
     
     print("Server is starting...")
-    rpc_server.serve_forever()  
+    rpc_server.serve_forever()  # Blocking call.
 
 def ppo_optimizer(max_cc, black_box_function, logger, verbose=True):
     print("Starting PPO Server in another thread.")
@@ -331,6 +338,7 @@ def run_optimizer(probing_func):
         params = base_optimizer(configurations, probing_func, logger)
 
     while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
+        print(f"Optimizer -- {params}")
         probing_func(params)
 
 
@@ -422,6 +430,15 @@ def graceful_exit(signum=None, frame=None):
         logger.debug(e)
 
     exit(1)
+
+def debug_concurrency():
+    print("=== Threads ===")
+    for t in threading.enumerate():
+        print(f" - {t.name} (alive={t.is_alive()}, daemon={t.daemon})")
+
+    print("=== Processes ===")
+    for c in mp.active_children():
+        print(f" - {c.name} PID={c.pid} (alive={c.is_alive()})")
 
 
 if __name__ == '__main__':
@@ -520,10 +537,10 @@ if __name__ == '__main__':
 
     print(f"File Mover Threads Started")
 
-    network_report_thread = Thread(target=report_network_throughput)
+    network_report_thread = Thread(target=report_network_throughput, daemon=True)
     network_report_thread.start()
 
-    io_report_thread = Thread(target=report_io_throughput)
+    io_report_thread = Thread(target=report_io_throughput, daemon=True)
     io_report_thread.start()
 
     io_optimizer_thread = Thread(target=run_optimizer, args=(io_probing,))
@@ -556,6 +573,16 @@ if __name__ == '__main__':
             p.join(timeout=0.1)
 
     print(f"Transfer Completed!")
+    print(f"tmpfs_dir: {tmpfs_dir}")
+
+    # network_report_thread.terminate()
+    # network_report_thread.join()
+    
+    # io_report_thread.terminate()
+    # io_report_thread.join()
+
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
+    print(f"tmpfs_dir Removed!")
+    debug_concurrency()
     logger.debug(f"Transfer Completed!")
     sys.exit(0)
