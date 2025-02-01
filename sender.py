@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def copy_file(process_id):
-    global rQueue, tQueue, io_process_status, io_file_offsets, file_names, file_sizes, memory_limit, io_limit, chunk_size, file_transfer
+    global rQueue, tQueue, io_process_status, io_file_offsets, file_names, file_sizes, memory_limit, io_limit, chunk_size, file_transfer, file_processed
     while rQueue:
         if io_process_status[process_id] == 1:
             logger.debug(f'Starting Copying Thread: {process_id}')
@@ -28,33 +28,33 @@ def copy_file(process_id):
                     file_id, offset = rQueue.popitem()
                     if file_transfer:
                         fname = file_names[file_id]
-                        print(f"Copying 30: {fname}")
+                        # print(f"Copying 30: {fname}")
                         fd = os.open(tmpfs_dir+fname, os.O_CREAT | os.O_RDWR)
                         block_size = chunk_size
                         if io_limit > 0:
                             target, factor = io_limit, 8
                             max_speed = (target * 1024 * 1024)/8
-                            print(f"Max Speed: {max_speed}")
+                            # print(f"Max Speed: {max_speed}")
                             second_target, second_data_count = int(max_speed/factor), 0
                             block_size = min(block_size, second_target)
                             timer100ms = time.time()
 
                         with open(root_dir+fname, "rb") as ff:
-                            print(f"Offset 42: {offset}")
+                            # print(f"Offset 42: {offset}")
                             ff.seek(int(offset))
                             chunk = ff.read(block_size)
 
                             os.lseek(fd, int(offset), os.SEEK_SET)
                             # offset_update = time.time()
                             while chunk and io_process_status[process_id] == 1:
-                                print(f"Writing 49: {fname}")
+                                # print(f"Writing 49: {fname}")
                                 os.write(fd, chunk)
                                 offset += len(chunk)
 
                                 # Update every 100 milliseconds
                                 # if time.time()-offset_update > 0.1:
                                 io_file_offsets[file_id] = offset
-                                print(f"Offset 56: {offset}")
+                                # print(f"Offset 56: {offset}")
 
                                     # offset_update = time.time()
 
@@ -69,7 +69,7 @@ def copy_file(process_id):
 
                                 chunk = ff.read(block_size)
 
-                            print(f"Offset 71: {offset}")
+                            # print(f"Offset 71: {offset}")
                             io_file_offsets[file_id] = offset
                             if offset < file_sizes[file_id]:
                                 logger.debug(f"I/O - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
@@ -100,7 +100,8 @@ def copy_file(process_id):
 
 def transfer_file(process_id):
     # print("Transfer File")
-    while rQueue or tQueue:
+    global file_processed
+    while file_processed < file_count:
         # print(f"Transfer File. Status: {transfer_process_status[process_id]}")
         if transfer_process_status[process_id] == 1:
             try:
@@ -110,6 +111,7 @@ def transfer_file(process_id):
                 sock.connect((HOST, PORT))
                 # print(f"Connected {HOST}:{PORT}")
             except socket.timeout as e:
+                print(f"Socket Timeout: {e}")
                 # logger.exception(e)
                 continue
 
@@ -172,6 +174,7 @@ def transfer_file(process_id):
                             tQueue[file_id] = offset
                         else:
                             logger.debug(f'Transfer :: {file_id}!')
+                            file_processed += 1
                             if file_transfer:
                                 run(f'rm {filename}', logger)
                                 logger.debug(f'Cleanup :: {file_id}!')
@@ -193,7 +196,7 @@ def transfer_file(process_id):
 
 
 def network_probing(params):
-    global network_throughput_logs, exit_signal
+    global network_throughput_logs, exit_signal, file_processed
 
     if not rQueue and not tQueue:
         return exit_signal
@@ -211,7 +214,7 @@ def network_probing(params):
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
     # time.sleep(n_time)
-    while (time.time() < n_time) and (rQueue or tQueue):
+    while (time.time() < n_time) and (file_processed < file_count):
         time.sleep(0.1)
 
     curr_sc, curr_rc = tcp_stats(RCVR_ADDR, logger)
@@ -258,7 +261,7 @@ def io_probing(params):
     n_time = time.time() + probing_time - 1.05
     used_before = get_dir_size(logger, tmpfs_dir)
     # time.sleep(n_time)
-    while (time.time() < n_time) and (rQueue or tQueue):
+    while (time.time() < n_time) and (file_processed < file_count):
         time.sleep(0.1)
 
     used_disk = get_dir_size(logger, tmpfs_dir)
@@ -460,7 +463,7 @@ class PPOOptimizer:
 
     def ppo_probing(self, params):
         # print("PPO Probing")
-        global io_throughput_logs, network_throughput_logs, exit_signal, rQueue, tQueue
+        global io_throughput_logs, network_throughput_logs, exit_signal, rQueue, tQueue, file_processed, file_count
         # global io_weight, net_weight
 
         if not rQueue and not tQueue:
@@ -489,7 +492,7 @@ class PPOOptimizer:
         # used_before = get_dir_size(logger, tmpfs_dir)
         # Sleep
         # time.sleep(n_time)
-        while (time.time() < n_time) and (rQueue or tQueue):
+        while (time.time() < n_time) and (file_processed < file_count):
             time.sleep(0.1)
 
         # After
@@ -581,7 +584,7 @@ class PPOOptimizer:
 
 
 def multi_params_probing(params):
-    global io_throughput_logs, network_throughput_logs, exit_signal
+    global io_throughput_logs, network_throughput_logs, exit_signal, rQueue, tQueue, file_processed, file_count
     # global io_weight, net_weight
 
     if not rQueue and not tQueue:
@@ -605,7 +608,7 @@ def multi_params_probing(params):
     # used_before = get_dir_size(logger, tmpfs_dir)
     # Sleep
     # time.sleep(n_time)
-    while (time.time() < n_time) and (rQueue or tQueue):
+    while (time.time() < n_time) and (file_processed < file_count):
         time.sleep(0.1)
 
     # After
@@ -655,6 +658,7 @@ def multi_params_probing(params):
 
 
 def normal_transfer(params):
+    global network_throughput_logs, io_throughput_logs, file_processed, file_count
     if len(params) != 2:
         params = [2,2]
 
@@ -666,11 +670,12 @@ def normal_transfer(params):
     for i in range(len(io_process_status)):
         io_process_status[i] = 1 if i < params[1] else 0
 
-    while rQueue or tQueue:
+    while file_processed < file_count:
         time.sleep(0.1)
 
 
 def run_optimizer(probing_func):
+    global file_processed, file_count, network_throughput_logs, io_throughput_logs, tmpfs_dir
     params = [2,2]
 
     if configurations["mp_opt"]:
@@ -713,16 +718,16 @@ def run_optimizer(probing_func):
             params = base_optimizer(configurations, probing_func, logger)
 
 
-    if rQueue or tQueue:
+    if file_processed < file_count:
         normal_transfer(params)
 
 
 def report_network_throughput(start_time):
-    global network_throughput_logs
+    global network_throughput_logs, file_count, file_processed
     previous_total = 0
     previous_time = 0
 
-    while rQueue or tQueue:
+    while file_processed < file_count:
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
@@ -853,7 +858,8 @@ if __name__ == '__main__':
     io_process_status = mp.Array("i", [0 for i in range(io_cc)])
     transfer_file_offsets = mp.Array("d", [0 for i in range(file_count)])
     io_file_offsets = mp.Array("d", [0 for i in range(file_count)])
-
+    file_processed = 0
+    print(f"File Count: {file_count} in {root_dir}")
     # io_weight, net_weight = 1, 1
 
     HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
@@ -905,7 +911,7 @@ if __name__ == '__main__':
         network_optimizer_thread = Thread(target=run_optimizer, args=(network_probing,))
         network_optimizer_thread.start()
 
-    while rQueue or tQueue:
+    while file_processed < file_count:
         time.sleep(1)
 
     end = time.time()
