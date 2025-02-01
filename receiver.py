@@ -240,7 +240,7 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
     ctx = zmq.Context()
     dispatcher = RPCDispatcher()
     transport = ZmqServerTransport.create(ctx, 'tcp://127.0.0.1:5001')
-    # stop_event = threading.Event()
+    stop_event = threading.Event()
 
     rpc_server = RPCServer(
         transport,
@@ -585,4 +585,5 @@ if __name__ == '__main__':
     print(f"tmpfs_dir Removed!")
     debug_concurrency()
     logger.debug(f"Transfer Completed!")
-    sys.exit(0)
+    # sys.exit(0)
+    os._exit(0)
