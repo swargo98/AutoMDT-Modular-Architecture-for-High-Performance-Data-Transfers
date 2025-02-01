@@ -79,7 +79,7 @@ def copy_file(process_id):
 
                             if offset>0 and file_id not in tQueue:
                                 print(f"Adding to tQueue: {file_id}")
-                                file_copied += 1
+                                file_copied.value += 1
                                 tQueue[file_id] = 0
                                 print (f"tQueue: {tQueue}")
 
@@ -102,7 +102,7 @@ def copy_file(process_id):
 def transfer_file(process_id):
     # print("Transfer File")
     global file_processed
-    while file_processed < file_count:
+    while file_processed.value < file_count:
         # print(f"Transfer File. Status: {transfer_process_status[process_id]}")
         if transfer_process_status[process_id] == 1:
             try:
@@ -180,8 +180,8 @@ def transfer_file(process_id):
                         else:
                             logger.debug(f'Transfer :: {file_id}!')
                             print(f'Transfer :: {file_id}!')
-                            file_processed += 1
-                            print(f"File Processed: {file_processed}")
+                            file_processed.value += 1
+                            print(f"File Processed: {file_processed.value}")
                             if file_transfer:
                                 run(f'rm {filename}', logger)
                                 logger.debug(f'Cleanup :: {file_id}!')
@@ -221,7 +221,7 @@ def network_probing(params):
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
     # time.sleep(n_time)
-    while (time.time() < n_time) and (file_processed < file_count):
+    while (time.time() < n_time) and (file_processed.value < file_count):
         time.sleep(0.1)
 
     curr_sc, curr_rc = tcp_stats(RCVR_ADDR, logger)
@@ -268,7 +268,7 @@ def io_probing(params):
     n_time = time.time() + probing_time - 1.05
     used_before = get_dir_size(logger, tmpfs_dir)
     # time.sleep(n_time)
-    while (time.time() < n_time) and (file_processed < file_count):
+    while (time.time() < n_time) and (file_processed.value < file_count):
         time.sleep(0.1)
 
     used_disk = get_dir_size(logger, tmpfs_dir)
@@ -449,7 +449,7 @@ class PPOOptimizer:
         global io_throughput_logs, network_throughput_logs, exit_signal, rQueue, tQueue, file_processed, file_count
         # global io_weight, net_weight
 
-        if file_processed == file_count:
+        if file_processed.value == file_count:
             print("Exiting Write 464")
             return [exit_signal, None, None]
         
@@ -461,11 +461,11 @@ class PPOOptimizer:
         logger.info("Probing Parameters - [Read, Network, Write]: {0}, {1}, {2}".format(read_thread, network_thread, write_thread))
 
         for i in range(len(transfer_process_status)):
-            transfer_process_status[i] = 1 if (i < network_thread and file_processed<file_count) else 0
+            transfer_process_status[i] = 1 if (i < network_thread and file_processed.value<file_count) else 0
 
         if params[1]:
             for i in range(len(io_process_status)):
-                io_process_status[i] = 1 if (i < read_thread and file_copied<file_count) else 0
+                io_process_status[i] = 1 if (i < read_thread and file_copied.value<file_count) else 0
 
         time.sleep(1)
 
@@ -475,7 +475,7 @@ class PPOOptimizer:
         # used_before = get_dir_size(logger, tmpfs_dir)
         # Sleep
         # time.sleep(n_time)
-        while (time.time() < n_time) and (file_processed < file_count):
+        while (time.time() < n_time) and (file_processed.value < file_count):
             time.sleep(0.1)
 
         # After
@@ -492,7 +492,7 @@ class PPOOptimizer:
 
         ## I/O score
         io_thrpt = 0
-        if read_thread and file_copied<file_count:
+        if read_thread and file_copied.value<file_count:
             io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
         else:
             io_thrpt = 0  
@@ -501,7 +501,7 @@ class PPOOptimizer:
         logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
 
         print (f"tQueue: {tQueue}")
-        if file_processed == file_count:
+        if file_processed.value == file_count:
             print("Exiting Write 516")
             return [exit_signal, None, None]
 
@@ -590,7 +590,7 @@ def multi_params_probing(params):
     # used_before = get_dir_size(logger, tmpfs_dir)
     # Sleep
     # time.sleep(n_time)
-    while (time.time() < n_time) and (file_processed < file_count):
+    while (time.time() < n_time) and (file_processed.value < file_count):
         time.sleep(0.1)
 
     # After
@@ -647,15 +647,15 @@ def normal_transfer(params):
     logger.info("Normal Transfer -- Probing Parameters [Network, I/O]: {0}".format(params))
 
     for i in range(len(transfer_process_status)):
-        transfer_process_status[i] = 1 if (i < params[0] and file_processed<file_count) else 0
+        transfer_process_status[i] = 1 if (i < params[0] and file_processed.value<file_count) else 0
 
     for i in range(len(io_process_status)):
-        io_process_status[i] = 1 if (i < params[1] and file_copied<file_count) else 0
+        io_process_status[i] = 1 if (i < params[1] and file_copied.value<file_count) else 0
 
     print(f"Transfer Process Status 649: {transfer_process_status}")
-    print(f"File Processed: {file_processed}, File Count: {file_count}")  
+    print(f"File Processed: {file_processed.value}, File Count: {file_count}")  
 
-    while file_processed < file_count:
+    while file_processed.value < file_count:
         time.sleep(0.1)
 
     print("Exiting Write 652")
@@ -705,7 +705,7 @@ def run_optimizer(probing_func):
             params = base_optimizer(configurations, probing_func, logger)
 
 
-    if file_processed < file_count:
+    if file_processed.value < file_count:
         normal_transfer(params)
 
 
@@ -714,7 +714,7 @@ def report_network_throughput(start_time):
     previous_total = 0
     previous_time = 0
 
-    while file_processed < file_count:
+    while file_processed.value < file_count:
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
@@ -845,8 +845,11 @@ if __name__ == '__main__':
     io_process_status = mp.Array("i", [0 for i in range(io_cc)])
     transfer_file_offsets = mp.Array("d", [0 for i in range(file_count)])
     io_file_offsets = mp.Array("d", [0 for i in range(file_count)])
-    file_processed = 0
-    file_copied = 0
+    
+    from multiprocessing import Value
+
+    file_processed = Value('i', 0)
+    file_copied = Value('i', 0)
     print(f"File Count: {file_count} in {root_dir}")
     # io_weight, net_weight = 1, 1
 
@@ -899,7 +902,7 @@ if __name__ == '__main__':
         network_optimizer_thread = Thread(target=run_optimizer, args=(network_probing,))
         network_optimizer_thread.start()
 
-    while file_processed < file_count:
+    while file_processed.value < file_count:
         time.sleep(1)
 
     end = time.time()
