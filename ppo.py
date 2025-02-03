@@ -19,9 +19,9 @@ def save_model(agent, filename_policy, filename_value):
 
 
 def load_model(agent, filename_policy, filename_value):
-    agent.policy.load_state_dict(torch.load(filename_policy))
+    agent.policy.load_state_dict(torch.load(filename_policy, map_location=torch.device('cpu')))
     agent.policy_old.load_state_dict(agent.policy.state_dict())
-    agent.value_function.load_state_dict(torch.load(filename_value))
+    agent.value_function.load_state_dict(torch.load(filename_value, map_location=torch.device('cpu')))
     # print("Model loaded successfully.")
 
 exit_signal = 10 ** 10
