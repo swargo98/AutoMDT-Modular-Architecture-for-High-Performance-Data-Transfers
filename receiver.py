@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 def move_file(process_id):
     while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
         if io_process_status[process_id] != 0 and mQueue:
-            logger.debug(f'Starting File Mover Thread: {process_id}')
+            logger.info(f'Starting File Mover Thread: {process_id}')
             try:
                 fname = mQueue.pop()
                 print(f"Process id: {process_id}; Moving File: {fname}")
@@ -45,6 +45,7 @@ def move_file(process_id):
                         offset += len(chunk)
                         io_file_offsets[fname] = offset
                         # print(f"Filename: {fname}; Offset: {offset}")
+                        # print(f'io_file_offsets sum: {np.sum(io_file_offsets.values())}')
                         # logger.debug((fname, offset))
                         if io_limit > 0:
                             second_data_count += len(chunk)
@@ -389,8 +390,8 @@ def report_io_throughput():
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        if time_since_begining>15:
-            if sum(io_throughput_logs[-15:]) == 0:
+        if time_since_begining>1000:
+            if sum(io_throughput_logs[-1000:]) == 0:
                 print("I/O Done! 374")
                 # transfer_done.value = 1
                 move_complete.value = transfer_complete.value
