@@ -6,7 +6,8 @@ configurations = {
         "port": 50022
     },
     "data_dir": "src/",
-    "method": "ppo", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    # "method": "mgd", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    "method": "ppo",
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
@@ -22,19 +23,19 @@ configurations = {
     "probing_sec": 3, # probing interval in seconds
     "multiplier": 1, # multiplier for each files, only for testing purpose
     "mp_opt": True,
-    "network_limit": 100, # Network limit (Mbps) per thread
-    "io_limit": -1, # I/O limit (Mbps) per thread
+    "network_limit": 1000, # Network limit (Mbps) per thread
+    "io_limit": 1200, # I/O limit (Mbps) per thread
     "memory_use": {
-        "maximum": 1,
+        "maximum": 30,
         "threshold": 1,
-
     },
     "fixed_probing": {
         "bsize": 10,
         "thread": 3
     },
     "max_cc": {
-        "network": 15,
-        "io": 10
+        "network": 20,
+        "io": 20,
+        'write': 20
     },
 }

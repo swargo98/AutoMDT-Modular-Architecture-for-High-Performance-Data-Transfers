@@ -12,7 +12,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
     limit_obs, count = 20, 0
     max_thread = configurations["thread_limit"]
     iterations = configurations["bayes"]["num_of_exp"]
-    mp_opt = configurations["mp_opt"]
+    mp_opt = configurations["mp_opt"] if "mp_opt" in configurations else False
 
     if mp_opt:
         search_space  = [
@@ -68,8 +68,8 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
                 max_thread = max(cc, 2)
                 reset = True
 
-            if (last_value < 0) and (cc == max_thread) and (cc < configurations["network_thread_limit"]):
-                max_thread = min(cc+5, configurations["network_thread_limit"])
+            if (last_value < 0) and (cc == max_thread) and (cc < configurations["thread_limit"]):
+                max_thread = min(cc+5, configurations["thread_limit"])
                 reset = True
 
             if reset:

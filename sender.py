@@ -81,6 +81,11 @@ def copy_file(process_id):
                                 print(f"Adding to tQueue: {file_id}")
                                 file_copied.value += 1
                                 tQueue[file_id] = 0
+
+                                # Code for finetuning; adding the file to the rQueue
+                                # rQueue[file_id] = 0
+                                # io_file_offsets[file_id] = 0
+
                                 print (f"tQueue: {tQueue}")
 
                         os.close(fd)
@@ -119,7 +124,7 @@ def transfer_file(process_id):
             while transfer_process_status[process_id] == 1:
                 try:
                     file_id, offset = tQueue.popitem()
-                    print(f"Popped File ID: {file_id}, Offset: {offset}")
+                    # print(f"Popped File ID: {file_id}, Offset: {offset}")
 
                     if network_limit>0:
                         target, factor = network_limit, 8
@@ -368,7 +373,7 @@ class PPOOptimizer:
         self.optimal_read_thread = 12
         self.optimal_network_thread = 12
         self.optimal_write_thread = 12
-        self.stable_bw = 12 * oneGB
+        self.stable_bw = 12 * configurations["network_limit"]
 
         self.utility_read = 0
         self.utility_network = 0
@@ -459,6 +464,8 @@ class PPOOptimizer:
         write_thread_set.start()
 
         logger.info("Probing Parameters - [Read, Network, Write]: {0}, {1}, {2}".format(read_thread, network_thread, write_thread))
+        with open('threads_log_ppo.csv', 'a') as f:
+            f.write(f"{[read_thread, network_thread]}\n{[write_thread]}\n")
 
         for i in range(len(transfer_process_status)):
             transfer_process_status[i] = 1 if (i < network_thread and file_processed.value<file_count) else 0
@@ -515,6 +522,8 @@ class PPOOptimizer:
         write_thrpt = get_write_throughput()
 
         print(f"Throughputs -- I/O: {io_thrpt}, Network: {net_thrpt}, Write: {write_thrpt}")
+        with open('throughputs_log_ppo.csv', 'a') as f:
+            f.write(f"{io_thrpt}, {net_thrpt}\n{write_thrpt}\n")
 
         if io_thrpt == exit_signal or write_thrpt == exit_signal:
             print("Exiting Write Process 521")
@@ -574,6 +583,8 @@ def multi_params_probing(params):
 
     params[0] = max(1,  int(np.round(params[0])))
     logger.info("Probing Parameters - [Network, I/O]: {0}".format(params))
+    with open('threads_log_rnw.csv', 'a') as f:
+            f.write(f"{params}\n")
 
     for i in range(len(transfer_process_status)):
         transfer_process_status[i] = 1 if i < params[0] else 0
@@ -630,6 +641,9 @@ def multi_params_probing(params):
 
     logger.info(f"Shared Memory -- Used: {used_disk}GB")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
+
+    with open('throughputs_log_rnw.csv', 'a') as f:
+            f.write(f"{io_thrpt}, {net_thrpt}\n")
 
     if not rQueue and not tQueue:
         net_score_value = exit_signal
@@ -880,6 +894,9 @@ if __name__ == '__main__':
 
     for i in range(file_count):
         rQueue[i] = 0
+
+    # Code for finetuning; making the file count infinite
+    # file_count = 1000000
 
     copy_workers = [mp.Process(target=copy_file, args=(i,)) for i in range(io_cc)]
     for p in copy_workers:

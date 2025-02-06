@@ -8,6 +8,8 @@ from gym import spaces
 import matplotlib.pyplot as plt
 import random
 from queue import PriorityQueue
+from config_sender import configurations
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # print(f"Using device: {device}")
@@ -114,7 +116,7 @@ class SimulatorState:
 class NetworkOptimizationEnv(gym.Env):
     def __init__(self, black_box_function, state, history_length=5):
         super(NetworkOptimizationEnv, self).__init__()
-        self.thread_limits = [1, 100]  # Threads can be between 1 and 10
+        self.thread_limits = [2, 100]  # Threads can be between 1 and 10
 
         self.action_space = spaces.MultiDiscrete([5, 5, 5])
         obs_dim = 5 + 7 * history_length
@@ -150,9 +152,9 @@ class NetworkOptimizationEnv(gym.Env):
 
 
         # 2) Compute new thread counts
-        new_read = min(max(self.state.read_thread + read_delta, self.thread_limits[0]), self.thread_limits[1])
-        new_network = min(max(self.state.network_thread + net_delta, self.thread_limits[0]), self.thread_limits[1])
-        new_write = min(max(self.state.write_thread + write_delta, self.thread_limits[0]), self.thread_limits[1])
+        new_read = min(max(self.state.read_thread + read_delta, self.thread_limits[0]), configurations['max_cc']['io'])
+        new_network = min(max(self.state.network_thread + net_delta, self.thread_limits[0]), configurations['max_cc']['network'])
+        new_write = min(max(self.state.write_thread + write_delta, self.thread_limits[0]), configurations['max_cc']['write'])
         new_thread_counts = [new_read, new_network, new_write]
 
         # Compute utility and update state
@@ -168,11 +170,11 @@ class NetworkOptimizationEnv(gym.Env):
 
         # Penalize actions that hit thread limits
         penalty = 0
-        if new_thread_counts[0] == self.thread_limits[0] or new_thread_counts[0] == self.thread_limits[1]:
+        if new_thread_counts[0] == self.thread_limits[0] or new_thread_counts[0] == configurations['max_cc']['io']:
             penalty -= 0.60  # Adjust penalty value as needed
-        if new_thread_counts[1] == self.thread_limits[0] or new_thread_counts[1] == self.thread_limits[1]:
+        if new_thread_counts[1] == self.thread_limits[0] or new_thread_counts[1] == configurations['max_cc']['network']:
             penalty -= 0.60
-        if new_thread_counts[2] == self.thread_limits[0] or new_thread_counts[2] == self.thread_limits[1]:
+        if new_thread_counts[2] == self.thread_limits[0] or new_thread_counts[2] == configurations['max_cc']['write']:
             penalty -= 0.60
 
         # Add penalty for large changes
