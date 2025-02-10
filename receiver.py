@@ -146,7 +146,7 @@ def receive_file(sock, process_id):
                             break
                     os.close(fd)
 
-                    if rq_size == 0 and tq_size == 0:
+                    if rq_size == 0 and tq_size == 0 and move_complete.value >= 15:
                         print(f"Transfer Done 143: {filename}")
                         transfer_done.value = 1
                 else:
@@ -173,7 +173,7 @@ def io_probing(params):
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
     logger.info("I/O -- Probing Parameters: {0}".format(params))
-    with open('threads_log_rnw.csv', 'a') as f:
+    with open('threads_log_univ_gd.csv', 'a') as f:
             f.write(f"{params}\n")
 
     for i in range(len(io_process_status)):
@@ -199,7 +199,7 @@ def io_probing(params):
     logger.info("I/O Probing -- Throughput: {0}Mbps, Score: {1}".format(
         np.round(thrpt), score_value))
     
-    with open('throughputs_log_rnw.csv', 'a') as f:
+    with open('throughputs_log_univ_gd.csv', 'a') as f:
             f.write(f"{thrpt}\n")
 
     if transfer_done.value == 1 and move_complete.value >= transfer_complete.value:
@@ -210,6 +210,7 @@ def io_probing(params):
 def io_probing_ppo(params):
     global io_throughput_logs
     if transfer_done.value == 1 and move_complete.value >= transfer_complete.value:
+        print('213')
         return exit_signal, None
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
@@ -229,7 +230,11 @@ def io_probing_ppo(params):
     logger.info(f"Shared Memory -- Used: {used}GB")
     logger.info("I/O Probing -- Throughput: {0}Mbps".format(np.round(thrpt)))
 
-    if transfer_done.value == 1 and move_complete.value >= transfer_complete.value:
+    if transfer_done.value == 1 and move_complete.value >= 15 and move_complete.value >= transfer_complete.value:
+        print('234')
+        print(transfer_done.value)
+        print(move_complete.value)
+        print(transfer_complete.value)
         return exit_signal, None
     else:
         return thrpt, used
