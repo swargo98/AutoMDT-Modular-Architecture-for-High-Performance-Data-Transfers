@@ -1,4 +1,5 @@
 #!/bin/bash
+python get_pip.py
 
 # List contents of /users/swargo98/.local/bin/
 ls /users/swargo98/.local/bin/
