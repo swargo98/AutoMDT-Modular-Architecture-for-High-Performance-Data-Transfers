@@ -3,6 +3,7 @@ configurations = {
         "host": "127.0.0.1",
         "port": 50022
     },
+    "rpc_port":"5001",
     "data_dir": "dest/",
     # "method": "bayes", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
     "method": "ppo",

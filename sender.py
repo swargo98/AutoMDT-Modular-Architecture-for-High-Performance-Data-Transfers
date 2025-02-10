@@ -318,9 +318,10 @@ from tinyrpc import RPCClient
 def set_write_thread(write_thread):
     ctx = zmq.Context()
     HOST = configurations["receiver"]["host"]
+    port = configurations['rpc_port']
     rpc_client = RPCClient(
         JSONRPCProtocol(),
-        ZmqClientTransport.create(ctx, 'tcp://'+HOST+':5001')
+        ZmqClientTransport.create(ctx, 'tcp://'+HOST+':'+port)
     )
 
     remote_server = rpc_client.get_proxy()
@@ -329,9 +330,10 @@ def set_write_thread(write_thread):
 def get_write_state():
     ctx = zmq.Context()
     HOST = configurations["receiver"]["host"]
+    port = configurations['rpc_port']
     rpc_client = RPCClient(
         JSONRPCProtocol(),
-        ZmqClientTransport.create(ctx, 'tcp://'+HOST+':5001')
+        ZmqClientTransport.create(ctx, 'tcp://'+HOST+':'+port)
     )
 
     remote_server = rpc_client.get_proxy()
@@ -342,9 +344,10 @@ def get_write_state():
 def get_write_throughput():
     ctx = zmq.Context()
     HOST = configurations["receiver"]["host"]
+    port = configurations['rpc_port']
     rpc_client = RPCClient(
         JSONRPCProtocol(),
-        ZmqClientTransport.create(ctx, 'tcp://'+HOST+':5001')
+        ZmqClientTransport.create(ctx, 'tcp://'+HOST+':'+port)
     )
 
     remote_server = rpc_client.get_proxy()
@@ -355,9 +358,10 @@ def get_write_throughput():
 def exit_write_process():
     ctx = zmq.Context()
     HOST = configurations["receiver"]["host"]
+    port = configurations['rpc_port']
     rpc_client = RPCClient(
         JSONRPCProtocol(),
-        ZmqClientTransport.create(ctx, 'tcp://'+HOST+':5001')
+        ZmqClientTransport.create(ctx, 'tcp://'+HOST+':'+port)
     )
 
     remote_server = rpc_client.get_proxy()

@@ -252,7 +252,8 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
     ctx = zmq.Context()
     dispatcher = RPCDispatcher()
     HOST = configurations["receiver"]["host"]
-    transport = ZmqServerTransport.create(ctx, 'tcp://'+HOST+':5001')
+    port = configurations['rpc_port']
+    transport = ZmqServerTransport.create(ctx, 'tcp://'+HOST+':'+port)
     stop_event = threading.Event()
 
     rpc_server = RPCServer(

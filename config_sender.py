@@ -2,12 +2,13 @@
 
 configurations = {
     "receiver": {
-        "host": "127.0.0.1",
+        "host": "128.105.145.40",
         "port": 50022
     },
+    "rpc_port":"5001",
     "data_dir": "src/",
-    # "method": "mgd", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "method": "ppo",
+    "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    # "method": "ppo",
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
@@ -22,7 +23,7 @@ configurations = {
     "loglevel": "info",
     "probing_sec": 3, # probing interval in seconds
     "multiplier": 1, # multiplier for each files, only for testing purpose
-    "mp_opt": True,
+    "mp_opt": False,
     "network_limit": 1000, # Network limit (Mbps) per thread
     "io_limit": 1200, # I/O limit (Mbps) per thread
     "memory_use": {
