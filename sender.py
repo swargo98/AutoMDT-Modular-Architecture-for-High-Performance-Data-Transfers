@@ -218,6 +218,8 @@ def network_probing(params):
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
     logger.info("Network -- Probing Parameters: {0}".format(params))
+    with open('threads_log_univ_gd_network.csv', 'a') as f:
+            f.write(f"{params}\n")
     for i in range(len(transfer_process_status)):
         transfer_process_status[i] = 1 if i < params[0] else 0
 
@@ -247,6 +249,8 @@ def network_probing(params):
     score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
     score_value = np.round(score * (-1))
 
+    with open('throughputs_log_univ_gd_network.csv', 'a') as f:
+            f.write(f"{thrpt}\n")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
     logger.info("Network Probing -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
@@ -265,6 +269,8 @@ def io_probing(params):
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
     logger.info("I/O -- Probing Parameters: {0}".format(params))
+    with open('threads_log_univ_gd_read.csv', 'a') as f:
+            f.write(f"{params}\n")
     for i in range(len(io_process_status)):
         io_process_status[i] = 1 if i < params[0] else 0
 
@@ -294,6 +300,8 @@ def io_probing(params):
     score = thrpt/cc_impact_nl - thrpt*storage_cost
     score_value = np.round(score * (-1))
 
+    with open('throughputs_log_univ_gd_read.csv', 'a') as f:
+            f.write(f"{thrpt}\n")
     # logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
     logger.info(f"I/O Probing -- Throughput: {np.round(thrpt)}Mbps, Score: {score_value}")
     if not rQueue:
@@ -413,7 +421,7 @@ class PPOOptimizer:
         optimals = [7, 7, 7, 7000]
 
         # print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
-        load_model(self.agent, "/home/rs75c/Falcon-File-Transfer-Optimizer/models/"+policy_model, "/home/rs75c/Falcon-File-Transfer-Optimizer/models/"+value_model)
+        load_model(self.agent, "models/"+policy_model, "models/"+value_model)
         # print("Model loaded successfully.")
 
         rewards = train_ppo(self.env, self.agent, max_episodes=100)
@@ -468,7 +476,7 @@ class PPOOptimizer:
         write_thread_set.start()
 
         logger.info("Probing Parameters - [Read, Network, Write]: {0}, {1}, {2}".format(read_thread, network_thread, write_thread))
-        with open('threads_log_ppo.csv', 'a') as f:
+        with open('threads_log_ppo_v6.csv', 'a') as f:
             f.write(f"{[read_thread, network_thread]}\n{[write_thread]}\n")
 
         for i in range(len(transfer_process_status)):
@@ -526,7 +534,7 @@ class PPOOptimizer:
         write_thrpt = get_write_throughput()
 
         print(f"Throughputs -- I/O: {io_thrpt}, Network: {net_thrpt}, Write: {write_thrpt}")
-        with open('throughputs_log_ppo.csv', 'a') as f:
+        with open('throughputs_log_ppo_v6.csv', 'a') as f:
             f.write(f"{io_thrpt}, {net_thrpt}\n{write_thrpt}\n")
 
         if io_thrpt == exit_signal or write_thrpt == exit_signal:
@@ -587,7 +595,7 @@ def multi_params_probing(params):
 
     params[0] = max(1,  int(np.round(params[0])))
     logger.info("Probing Parameters - [Network, I/O]: {0}".format(params))
-    with open('threads_log_rnw.csv', 'a') as f:
+    with open('threads_log_univ_gd.csv', 'a') as f:
             f.write(f"{params}\n")
 
     for i in range(len(transfer_process_status)):
@@ -646,7 +654,7 @@ def multi_params_probing(params):
     logger.info(f"Shared Memory -- Used: {used_disk}GB")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
 
-    with open('throughputs_log_rnw.csv', 'a') as f:
+    with open('throughputs_log_univ_gd.csv', 'a') as f:
             f.write(f"{io_thrpt}, {net_thrpt}\n")
 
     if not rQueue and not tQueue:
