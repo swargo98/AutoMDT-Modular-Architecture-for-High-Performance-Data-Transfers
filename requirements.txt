@@ -13,3 +13,4 @@ gym
 zmq
 tinyrpc
 numpy
+tqdm

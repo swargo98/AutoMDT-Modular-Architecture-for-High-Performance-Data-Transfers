@@ -246,7 +246,8 @@ from tinyrpc.dispatch import RPCDispatcher
 def start_server(max_cc, black_box_function, logger, verbose=True):
     ctx = zmq.Context()
     dispatcher = RPCDispatcher()
-    transport = ZmqServerTransport.create(ctx, 'tcp://127.0.0.1:5001')
+    HOST = configurations["receiver"]["host"]
+    transport = ZmqServerTransport.create(ctx, 'tcp://'+HOST+':5001')
     stop_event = threading.Event()
 
     rpc_server = RPCServer(
