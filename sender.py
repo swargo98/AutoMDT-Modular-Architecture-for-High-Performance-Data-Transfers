@@ -480,7 +480,7 @@ class PPOOptimizer:
         write_thread_set.start()
 
         logger.info("Probing Parameters - [Read, Network, Write]: {0}, {1}, {2}".format(read_thread, network_thread, write_thread))
-        with open('threads_log_ppo_v6.csv', 'a') as f:
+        with open('threads_log_ppo_v8_2.csv', 'a') as f:
             f.write(f"{[read_thread, network_thread]}\n{[write_thread]}\n")
 
         for i in range(len(transfer_process_status)):
@@ -538,7 +538,7 @@ class PPOOptimizer:
         write_thrpt = get_write_throughput()
 
         print(f"Throughputs -- I/O: {io_thrpt}, Network: {net_thrpt}, Write: {write_thrpt}")
-        with open('throughputs_log_ppo_v6.csv', 'a') as f:
+        with open('throughputs_log_ppo_v8_2.csv', 'a') as f:
             f.write(f"{io_thrpt}, {net_thrpt}\n{write_thrpt}\n")
 
         if io_thrpt == exit_signal or write_thrpt == exit_signal:
@@ -599,7 +599,7 @@ def multi_params_probing(params):
 
     params[0] = max(1,  int(np.round(params[0])))
     logger.info("Probing Parameters - [Network, I/O]: {0}".format(params))
-    with open('threads_log_univ_gd.csv', 'a') as f:
+    with open('threads_log_univ_bayes.csv', 'a') as f:
             f.write(f"{params}\n")
 
     for i in range(len(transfer_process_status)):
@@ -658,7 +658,7 @@ def multi_params_probing(params):
     logger.info(f"Shared Memory -- Used: {used_disk}GB")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
 
-    with open('throughputs_log_univ_gd.csv', 'a') as f:
+    with open('throughputs_log_univ_bayes.csv', 'a') as f:
             f.write(f"{io_thrpt}, {net_thrpt}\n")
 
     if not rQueue and not tQueue:
@@ -765,6 +765,8 @@ def report_network_throughput(start_time):
             network_throughput_logs.append(curr_thrpt)
             logger.info(f"Network Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
             t2 = time.time()
+            with open('timed_log_network_ppo_1.csv', 'a') as f:
+                f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(transfer_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 
 
@@ -773,7 +775,7 @@ def report_io_throughput(start_time):
     previous_total = 0
     previous_time = 0
 
-    while rQueue:
+    while file_processed.value < file_count:
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
@@ -788,6 +790,8 @@ def report_io_throughput(start_time):
             logger.info(f"I/O Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
 
             t2 = time.time()
+            with open('timed_log_read_ppo_1.csv', 'a') as f:
+                f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(io_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 
 
