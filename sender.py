@@ -125,6 +125,17 @@ def transfer_file(process_id):
                 try:
                     file_id, offset = tQueue.popitem()
                     # print(f"Popped File ID: {file_id}, Offset: {offset}")
+                    if transfer_file_offsets[file_id] > offset:
+                        with open('anomaly2.txt', 'a') as f:
+                            f.write('-----------130---------------------')
+                            f.write(f"changed_file_name = {file_names[file_id]}\n")
+                            f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
+
+                    offset = transfer_file_offsets[file_id]
+
+                    with open(str(file_id) + '_offset.txt', 'a') as f:
+                        f.write(f"prev, curr = {transfer_file_offsets[file_id]}, {offset}\n")
+
 
                     if network_limit>0:
                         target, factor = network_limit, 8
@@ -156,9 +167,18 @@ def transfer_file(process_id):
 
                             offset += sent
                             to_send -= sent
+                            with open(str(file_id) + '_offset.txt', 'a') as f:
+                                f.write(f"prev, curr = {transfer_file_offsets[file_id]}, {offset}\n")
 
                             ## Update every 100 milliseconds
                             if time.time() - offset_update >= 0.1:
+                                if transfer_file_offsets[file_id] > offset:
+                                    with open('anomaly2.txt', 'a') as f:
+                                        f.write('-----------164---------------------')
+                                        f.write(f"changed_file_name = {file_names[file_id]}\n")
+                                        f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
+                                        f.write(f"total_transfer_file_offsets = {sum(transfer_file_offsets)}\n")
+                                        f.write(f"current_transfer_file_offsets = {list(transfer_file_offsets)}\n")
                                 transfer_file_offsets[file_id] = offset
                                 offset_update = time.time()
 
@@ -174,6 +194,13 @@ def transfer_file(process_id):
                         if file_transfer:
                             file.close()
 
+                        if transfer_file_offsets[file_id] > offset:
+                            with open('anomaly2.txt', 'a') as f:
+                                f.write('-----------186---------------------')
+                                f.write(f"changed_file_name = {file_names[file_id]}\n")
+                                f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
+                                f.write(f"total_transfer_file_offsets = {sum(transfer_file_offsets)}\n")
+                                f.write(f"current_transfer_file_offsets = {list(transfer_file_offsets)}\n")
                         transfer_file_offsets[file_id] = offset
                         print(f"Transfer File Offset: {float(offset)}")
                         print(f"I/O File Offset: {float(io_file_offsets[file_id])}")
@@ -181,7 +208,12 @@ def transfer_file(process_id):
                         if float(offset) < float(io_file_offsets[file_id]) or file_id in rQueue:
                             logger.debug(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
                             print(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
-                            tQueue[file_id] = offset
+                            if transfer_file_offsets[file_id] > offset:
+                                with open('anomaly2.txt', 'a') as f:
+                                    f.write('-----------205---------------------')
+                                    f.write(f"changed_file_name = {file_names[file_id]}\n")
+                                    f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
+                            tQueue[file_id] = transfer_file_offsets[file_id]
                         else:
                             logger.debug(f'Transfer :: {file_id}!')
                             print(f'Transfer :: {file_id}!')
@@ -192,7 +224,12 @@ def transfer_file(process_id):
                                 logger.debug(f'Cleanup :: {file_id}!')
 
                     else:
-                        tQueue[file_id] = offset
+                        if transfer_file_offsets[file_id] > offset:
+                            with open('anomaly2.txt', 'a') as f:
+                                f.write('-----------221---------------------')
+                                f.write(f"changed_file_name = {file_names[file_id]}\n")
+                                f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
+                        tQueue[file_id] = transfer_file_offsets[file_id]
                 except KeyError:
                     time.sleep(0.1)
                     continue
@@ -743,6 +780,7 @@ def report_network_throughput(start_time):
     global network_throughput_logs, file_count, file_processed
     previous_total = 0
     previous_time = 0
+    previous_transfer_file_offsets = None
 
     while file_processed.value < file_count:
         t1 = time.time()
@@ -761,9 +799,22 @@ def report_network_throughput(start_time):
             curr_total = total_bytes - previous_total
             curr_time_sec = np.round(time_since_begining - previous_time, 3)
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
-            previous_time, previous_total = time_since_begining, total_bytes
             network_throughput_logs.append(curr_thrpt)
             logger.info(f"Network Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
+            if curr_thrpt < 0:
+                with open('anomaly.txt', 'a') as f:
+                    f.write('======================\n')
+                    f.write(f"time_since_begining = {time_since_begining}\n")
+                    f.write(f"previous_time, previous_total = {previous_time}, {previous_total}\n")
+                    f.write(f"previous_transfer_file_offsets = {previous_transfer_file_offsets}\n")
+                    f.write(f"current_transfer_file_offsets = {list(transfer_file_offsets)}\n")
+                    f.write(f"total_bytes = {total_bytes}\n")
+                    f.write(f"thrpt = {thrpt}\n")
+                    f.write(f"curr_total = {curr_total}\n")
+                    f.write(f"curr_thrpt = {curr_thrpt}\n")
+                    f.write(f"network_throughput_logs = {network_throughput_logs}\n")
+            previous_time, previous_total = time_since_begining, total_bytes
+            previous_transfer_file_offsets = list(transfer_file_offsets)
             t2 = time.time()
             with open('timed_log_network_ppo_1.csv', 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(transfer_process_status)}\n")
