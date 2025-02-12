@@ -1,12 +1,12 @@
 configurations = {
     "receiver": {
-        "host": "127.0.0.1",
-        "port": 50022
+        "host": "128.105.145.40",
+        "port": 50026
     },
-    "rpc_port":"5001",
-    "data_dir": "dest/",
-    # "method": "bayes", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "method": "ppo",
+    "rpc_port":"5002",
+    "data_dir": "dest2/",
+    "method": "ppo", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    # "method": "ppo",
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
