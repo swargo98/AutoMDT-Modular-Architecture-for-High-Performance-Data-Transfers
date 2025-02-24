@@ -200,98 +200,6 @@ class NetworkOptimizationEnv(gym.Env):
 
         return self.state.to_array()
 
-# class ResidualBlock(nn.Module):
-#     def __init__(self, size, activation=nn.ReLU):
-#         super(ResidualBlock, self).__init__()
-#         self.fc1 = nn.Linear(size, size)
-#         self.fc2 = nn.Linear(size, size)
-#         self.activation = activation()
-
-#     def forward(self, x):
-#         # Save the input (for the skip connection)
-#         residual = x
-        
-#         # Pass through two linear layers with activation
-#         out = self.fc1(x)
-#         out = self.activation(out)
-#         out = self.fc2(out)
-        
-#         # Add the original input (residual connection)
-#         out += residual
-        
-#         # Optionally add another activation at the end
-#         out = self.activation(out)
-#         return out
-    
-# class PhysicsAwarePolicyDiscrete(nn.Module):
-#     def __init__(self, state_dim, num_actions=5, num_heads=8, num_layers=3):
-#         super().__init__()
-#         # Existing layers
-#         self.embedding = nn.Linear(state_dim, 512)
-#         encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=num_heads)
-#         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        
-#         # Action head remains
-#         self.action_head = nn.Linear(512, 3 * num_actions)
-        
-#         # New components
-#         self.bottleneck_head = nn.Sequential(
-#             nn.Linear(512, 64),
-#             nn.ReLU(),
-#             nn.Linear(64, 3),  # Read/Network/Write bottleneck probs
-#             nn.Softmax(dim=-1)
-#         )
-        
-#         self.grad_estimator = nn.Sequential(
-#             nn.Linear(512, 128),
-#             nn.ReLU(),
-#             nn.Linear(128, 3),  # ∂reward/∂(read,net,write)
-#             nn.Tanh()  # Normalized gradients
-#         )
-        
-#         self.to(device)
-
-#     def forward(self, state):
-#         x = torch.tanh(self.embedding(state))
-#         x = x.unsqueeze(0)  # Add sequence dimension
-#         x = self.transformer(x)
-#         x = x.squeeze(0)
-        
-#         # Original action logits
-#         action_logits = self.action_head(x).view(-1, 3, 5).float()
-        
-#         # New outputs
-#         bottleneck_probs = self.bottleneck_head(x).float()
-#         gradients = self.grad_estimator(x).float()
-        
-#         return action_logits, bottleneck_probs, gradients
-    
-# class ValueNetwork(nn.Module):
-#     def __init__(self, state_dim, num_heads=8):
-#         super(ValueNetwork, self).__init__()
-#         self.embedding = nn.Linear(state_dim, 512)
-#         self.attention = nn.MultiheadAttention(embed_dim=512, num_heads=num_heads)
-        
-#         self.fc_layers = nn.Sequential(
-#             nn.Linear(512, 256),
-#             nn.Tanh(),
-#             nn.Linear(256, 64),
-#             nn.Tanh(),
-#             nn.Linear(64, 1)
-#         )
-#         self.to(device)
-        
-#     def forward(self, state):
-#         x = torch.tanh(self.embedding(state))
-#         x = x.unsqueeze(0)  # Add sequence dimension
-        
-#         # Self-attention
-#         attn_output, _ = self.attention(x, x, x)
-#         x = attn_output.squeeze(0)
-        
-#         value = self.fc_layers(x)
-#         return value
-
 class ResidualBlock(nn.Module):
     def __init__(self, size, activation=nn.ReLU):
         super(ResidualBlock, self).__init__()
@@ -315,28 +223,27 @@ class ResidualBlock(nn.Module):
         out = self.activation(out)
         return out
     
-    
 class PhysicsAwarePolicyDiscrete(nn.Module):
-    def __init__(self, state_dim, num_actions=5):
+    def __init__(self, state_dim, num_actions=5, num_heads=8, num_layers=3):
         super().__init__()
         # Existing layers
-        self.fc1 = nn.Linear(state_dim, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 256)
+        self.embedding = nn.Linear(state_dim, 512)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=num_heads)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         
         # Action head remains
-        self.action_head = nn.Linear(256, 3 * num_actions)
+        self.action_head = nn.Linear(512, 3 * num_actions)
         
         # New components
         self.bottleneck_head = nn.Sequential(
-            nn.Linear(256, 64),
+            nn.Linear(512, 64),
             nn.ReLU(),
             nn.Linear(64, 3),  # Read/Network/Write bottleneck probs
             nn.Softmax(dim=-1)
         )
         
         self.grad_estimator = nn.Sequential(
-            nn.Linear(256, 128),
+            nn.Linear(512, 128),
             nn.ReLU(),
             nn.Linear(128, 3),  # ∂reward/∂(read,net,write)
             nn.Tanh()  # Normalized gradients
@@ -345,9 +252,10 @@ class PhysicsAwarePolicyDiscrete(nn.Module):
         self.to(device)
 
     def forward(self, state):
-        x = torch.tanh(self.fc1(state))
-        x = torch.tanh(self.fc2(x))
-        x = torch.tanh(self.fc3(x))
+        x = torch.tanh(self.embedding(state))
+        x = x.unsqueeze(0)  # Add sequence dimension
+        x = self.transformer(x)
+        x = x.squeeze(0)
         
         # Original action logits
         action_logits = self.action_head(x).view(-1, 3, 5).float()
@@ -359,24 +267,116 @@ class PhysicsAwarePolicyDiscrete(nn.Module):
         return action_logits, bottleneck_probs, gradients
     
 class ValueNetwork(nn.Module):
-    def __init__(self, state_dim):
+    def __init__(self, state_dim, num_heads=8):
         super(ValueNetwork, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 256)
-        self.value_head = nn.Linear(256, 1)
+        self.embedding = nn.Linear(state_dim, 512)
+        self.attention = nn.MultiheadAttention(embed_dim=512, num_heads=num_heads)
+        
+        self.fc_layers = nn.Sequential(
+            nn.Linear(512, 256),
+            nn.Tanh(),
+            nn.Linear(256, 64),
+            nn.Tanh(),
+            nn.Linear(64, 1)
+        )
         self.to(device)
-
+        
     def forward(self, state):
-        """
-        state: shape [batch_size, state_dim]
-        Returns: value estimate of shape [batch_size, 1]
-        """
-        x = torch.tanh(self.fc1(state))
-        x = torch.tanh(self.fc2(x))
-        x = torch.tanh(self.fc3(x))
-        value = self.value_head(x)
+        x = torch.tanh(self.embedding(state))
+        x = x.unsqueeze(0)  # Add sequence dimension
+        
+        # Self-attention
+        attn_output, _ = self.attention(x, x, x)
+        x = attn_output.squeeze(0)
+        
+        value = self.fc_layers(x)
         return value
+
+# class ResidualBlock(nn.Module):
+#     def __init__(self, size, activation=nn.ReLU):
+#         super(ResidualBlock, self).__init__()
+#         self.fc1 = nn.Linear(size, size)
+#         self.fc2 = nn.Linear(size, size)
+#         self.activation = activation()
+
+#     def forward(self, x):
+#         # Save the input (for the skip connection)
+#         residual = x
+        
+#         # Pass through two linear layers with activation
+#         out = self.fc1(x)
+#         out = self.activation(out)
+#         out = self.fc2(out)
+        
+#         # Add the original input (residual connection)
+#         out += residual
+        
+#         # Optionally add another activation at the end
+#         out = self.activation(out)
+#         return out
+    
+    
+# class PhysicsAwarePolicyDiscrete(nn.Module):
+#     def __init__(self, state_dim, num_actions=5):
+#         super().__init__()
+#         # Existing layers
+#         self.fc1 = nn.Linear(state_dim, 512)
+#         self.fc2 = nn.Linear(512, 512)
+#         self.fc3 = nn.Linear(512, 256)
+        
+#         # Action head remains
+#         self.action_head = nn.Linear(256, 3 * num_actions)
+        
+#         # New components
+#         self.bottleneck_head = nn.Sequential(
+#             nn.Linear(256, 64),
+#             nn.ReLU(),
+#             nn.Linear(64, 3),  # Read/Network/Write bottleneck probs
+#             nn.Softmax(dim=-1)
+#         )
+        
+#         self.grad_estimator = nn.Sequential(
+#             nn.Linear(256, 128),
+#             nn.ReLU(),
+#             nn.Linear(128, 3),  # ∂reward/∂(read,net,write)
+#             nn.Tanh()  # Normalized gradients
+#         )
+        
+#         self.to(device)
+
+#     def forward(self, state):
+#         x = torch.tanh(self.fc1(state))
+#         x = torch.tanh(self.fc2(x))
+#         x = torch.tanh(self.fc3(x))
+        
+#         # Original action logits
+#         action_logits = self.action_head(x).view(-1, 3, 5).float()
+        
+#         # New outputs
+#         bottleneck_probs = self.bottleneck_head(x).float()
+#         gradients = self.grad_estimator(x).float()
+        
+#         return action_logits, bottleneck_probs, gradients
+    
+# class ValueNetwork(nn.Module):
+#     def __init__(self, state_dim):
+#         super(ValueNetwork, self).__init__()
+#         self.fc1 = nn.Linear(state_dim, 512)
+#         self.fc2 = nn.Linear(512, 512)
+#         self.fc3 = nn.Linear(512, 256)
+#         self.value_head = nn.Linear(256, 1)
+#         self.to(device)
+
+#     def forward(self, state):
+#         """
+#         state: shape [batch_size, state_dim]
+#         Returns: value estimate of shape [batch_size, 1]
+#         """
+#         x = torch.tanh(self.fc1(state))
+#         x = torch.tanh(self.fc2(x))
+#         x = torch.tanh(self.fc3(x))
+#         value = self.value_head(x)
+#         return value
 
 class PPOAgentDiscrete:
     def __init__(self, 

@@ -133,8 +133,8 @@ def transfer_file(process_id):
 
                     offset = transfer_file_offsets[file_id]
 
-                    with open(str(file_id) + '_offset.txt', 'a') as f:
-                        f.write(f"prev, curr = {transfer_file_offsets[file_id]}, {offset}\n")
+                    with open(file_names[file_id] + '_offset.txt', 'a') as f:
+                        f.write(f"137 prev, curr = {transfer_file_offsets[file_id]}, {offset}\n")
 
 
                     if network_limit>0:
@@ -154,25 +154,37 @@ def transfer_file(process_id):
 
                         timer100ms = offset_update = time.time()
                         while (to_send > 0) and (transfer_process_status[process_id] == 1):
+                            with open(file_names[file_id] + '_offset.txt', 'a') as f:
+                                f.write(f"157 prev, curr = {transfer_file_offsets[file_id]}, {offset}, {to_send}, {file.tell()}\n")
+
                             if network_limit>0:
                                 block_size = min(chunk_size, second_target-second_data_count, to_send)
                             else:
                                 block_size = min(chunk_size, to_send)
+
+                            # with open(file_names[file_id] + '_offset.txt', 'a') as f:
+                            #     f.write(f"Before SENT; {sent}; {offset} {int(block_size)}\n")
 
                             if file_transfer:
                                 sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
                             else:
                                 data_to_send = bytearray(int(block_size))
                                 sent = sock.send(data_to_send)
-
+                            # with open(file_names[file_id] + '_offset.txt', 'a') as f:
+                            #     f.write(f"After SENT; {sent}; {offset} {int(block_size)}\n")
+                            with open(file_names[file_id] + '_offset.txt', 'a') as f:
+                                f.write(f"159 prev, curr = {transfer_file_offsets[file_id]}, {offset}, {file.tell()}, {sent}\n")
                             offset += sent
                             to_send -= sent
-                            with open(str(file_id) + '_offset.txt', 'a') as f:
-                                f.write(f"prev, curr = {transfer_file_offsets[file_id]}, {offset}\n")
+                            
+                            with open(file_names[file_id] + '_offset.txt', 'a') as f:
+                                f.write(f"160 prev, curr = {transfer_file_offsets[file_id]}, {offset} {to_send}\n")
 
                             ## Update every 100 milliseconds
                             if time.time() - offset_update >= 0.1:
                                 if transfer_file_offsets[file_id] > offset:
+                                    with open(file_names[file_id] + '_offset.txt', 'a') as f:
+                                        f.write(f"164 prev, curr = {transfer_file_offsets[file_id]}, {offset}\n")
                                     with open('anomaly2.txt', 'a') as f:
                                         f.write('-----------164---------------------')
                                         f.write(f"changed_file_name = {file_names[file_id]}\n")
@@ -181,6 +193,9 @@ def transfer_file(process_id):
                                         f.write(f"current_transfer_file_offsets = {list(transfer_file_offsets)}\n")
                                 transfer_file_offsets[file_id] = offset
                                 offset_update = time.time()
+
+                            with open(file_names[file_id] + '_offset.txt', 'a') as f:
+                                f.write(f"186 prev, curr = {transfer_file_offsets[file_id]}, {offset}\n")
 
                             if network_limit>0:
                                 second_data_count += sent
