@@ -39,7 +39,7 @@ def copy_file(process_id):
                             block_size = min(block_size, second_target)
                             timer100ms = time.time()
 
-                        with open(root_dir+fname, "rb") as ff:
+                        with open(root_dir+fname.split('-')[0], "rb") as ff:
                             # print(f"Offset 42: {offset}")
                             ff.seek(int(offset))
                             chunk = ff.read(block_size)
@@ -88,7 +88,7 @@ def copy_file(process_id):
                                 # rQueue[file_id] = 0
                                 # io_file_offsets[file_id] = 0
 
-                                print (f"tQueue: {tQueue}")
+                                # print (f"tQueue: {tQueue}")
 
                         os.close(fd)
                     else:
@@ -152,6 +152,7 @@ def transfer_file(process_id):
                         if file_transfer:
                             try:
                                 with open(filename, 'rb') as file:
+                                    # msg = f"{len(rQueue)},{len(tQueue)},{file_names[file_id] + '_' + str(time.time())},{int(offset)},{int(to_send)}\n"
                                     msg = f"{len(rQueue)},{len(tQueue)},{file_names[file_id]},{int(offset)},{int(to_send)}\n"
                                     sock.send(msg.encode())
                                     logger.debug(f"starting {process_id}, {filename}, {offset}, {len(tQueue)}")
@@ -251,9 +252,10 @@ def transfer_file(process_id):
                             #     f.write(f"244 {process_id}: ELSE\n")
                                 # f.write(f'{tQueue}\n')
                             logger.debug(f'Transfer :: {file_id}!')
-                            print(f'Transfer :: {file_id}!')
+                            # print(f'Transfer :: {file_id}!')
                             file_processed.value += 1
-                            print(f"File Processed: {file_processed.value}")
+                            if file_processed.value % 100 == 0:
+                                print(f"File Processed: {file_processed.value}")
                             if file_transfer:
                                 run(f'rm {filename}', logger)
                                 logger.debug(f'Cleanup :: {file_id}!')
@@ -774,7 +776,8 @@ def run_optimizer(probing_func):
         if configurations["method"].lower() == "ppo":
             logger.info("Running PPO Optimization .... ")
             optimizer = PPOOptimizer()
-            print("Optimizer Created")
+            file_processed.value = file_count
+            return
             # params = optimizer.ppo_probing(params)
         elif configurations["method"].lower() == "cg":
             logger.info("Running Conjugate Optimization .... ")
@@ -967,8 +970,10 @@ if __name__ == '__main__':
     root_dir = configurations["data_dir"]
     tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
     probing_time = configurations["probing_sec"]
-    file_names = os.listdir(root_dir)[:] * configurations["multiplier"]
-    file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
+    # file_names = os.listdir(root_dir)[:] * configurations["multiplier"]
+    file_names = [f"{fname}-{i}" for fname in os.listdir(root_dir) for i in range(1, configurations["multiplier"] + 1)]
+    # file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
+    file_sizes = [os.path.getsize(os.path.join(root_dir, fname.split('-')[0])) for fname in file_names]
     file_count = len(file_names)
     network_throughput_logs = manager.list()
     io_throughput_logs = manager.list()
@@ -1045,8 +1050,8 @@ if __name__ == '__main__':
     time_since_begining = np.round(end-start, 3)
     total = np.round(np.sum(file_sizes) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_since_begining,2)
-    # logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
-    #     total, time_since_begining, thrpt))
+    logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
+        total, time_since_begining, thrpt))
 
     for p in copy_workers:
         if p.is_alive():
