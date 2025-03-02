@@ -34,19 +34,21 @@ def move_file(process_id):
 
                 with open(tmpfs_dir+fname, "rb") as ff:
                     chunk, offset = ff.read(block_size), 0
+
+                    if io_file_offsets[fname] > offset:
+                        with open('anomaly2.txt', 'a') as f:
+                            f.write(f"40 Process id: {process_id}; {fname}: offset = {offset} arr = {io_file_offsets[fname]}\n")
+                    
                     if fname in io_file_offsets:
                         offset = int(io_file_offsets[fname])
-                        print('io_file_offsets')
-                        print(np.sum(io_file_offsets.values()))
-
+                    
                     while chunk and io_process_status[process_id] != 0:
                         os.lseek(fd, offset, os.SEEK_SET)
                         os.write(fd, chunk)
                         offset += len(chunk)
+                        with open('logs/'+ fname + '_offset.txt', 'a') as f:
+                            f.write(f"48 Process id: {process_id}; offset = {offset}\n")
                         io_file_offsets[fname] = offset
-                        # print(f"Filename: {fname}; Offset: {offset}")
-                        # print(f'io_file_offsets sum: {np.sum(io_file_offsets.values())}')
-                        # logger.debug((fname, offset))
                         if io_limit > 0:
                             second_data_count += len(chunk)
                             if second_data_count >= second_target:
@@ -65,6 +67,7 @@ def move_file(process_id):
                         move_complete.value += 1
                         logger.debug(f'I/O :: {fname}')
                         run(f'rm {tmpfs_dir}{fname}', logger)
+                        run(f'rm {root_dir+fname}', logger)
                         logger.debug(f'Cleanup :: {fname}')
 
                 os.close(fd)
@@ -142,6 +145,8 @@ def receive_file(sock, process_id):
                             print(f"Receive Done 137: {filename}")
                             transfer_complete.value += 1
                             io_file_offsets[filename] = 0
+                            with open('logs/'+ filename + '_offset.txt', 'a') as f:
+                                    f.write(f"145 offset = {offset}\n")
                             mQueue.append(filename)
                             break
                     os.close(fd)
@@ -384,6 +389,9 @@ def report_network_throughput():
             previous_time, previous_total = time_since_begining, total_bytes
             throughput_logs.append(curr_thrpt)
 
+            with open('nw_tp_details.txt', 'a') as f:
+                    f.write(f"Total bytes, throughputs, current total = {total_bytes} {thrpt} {curr_total}\n")
+
             logger.info("Network Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
                 time_since_begining, curr_thrpt, thrpt))
 
@@ -419,8 +427,8 @@ def report_io_throughput():
             previous_time, previous_total = time_since_begining, total_bytes
             io_throughput_logs.append(curr_thrpt)
 
-            print('io_file_offsets')
-            print(np.sum(io_file_offsets.values()))
+            with open('io_tp_details.txt', 'a') as f:
+                    f.write(f"Total bytes, throughputs, current total = {total_bytes} {thrpt} {curr_total}\n")
 
 
             logger.info("Total I/O: {0}".format(total_bytes))
