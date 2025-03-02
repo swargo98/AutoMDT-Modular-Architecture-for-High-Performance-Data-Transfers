@@ -2,7 +2,7 @@
 
 configurations = {
     "receiver": {
-        "host": "128.105.145.40",
+        "host": "10.10.1.2",
         "port": 50026
     },
     "rpc_port":"5002",
