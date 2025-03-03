@@ -538,7 +538,7 @@ if __name__ == '__main__':
         exit(1)
 
     _, free = available_space(tmpfs_dir)
-    memory_limit = min(20, free/2)
+    memory_limit = min(5, free/2)
     num_workers = configurations['thread_limit']
 
     print(f"Memory Limit: {memory_limit}GB")
