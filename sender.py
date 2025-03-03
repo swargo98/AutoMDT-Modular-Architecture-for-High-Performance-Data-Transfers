@@ -254,8 +254,7 @@ def transfer_file(process_id):
                             logger.debug(f'Transfer :: {file_id}!')
                             # print(f'Transfer :: {file_id}!')
                             file_processed.value += 1
-                            if file_processed.value % 100 == 0:
-                                print(f"File Processed: {file_processed.value}")
+                            print(f"File Processed: {file_processed.value}")
                             if file_transfer:
                                 run(f'rm {filename}', logger)
                                 logger.debug(f'Cleanup :: {file_id}!')

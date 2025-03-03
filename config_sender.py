@@ -22,12 +22,12 @@ configurations = {
     "K": 1.05, # cost of increasing concurrency
     "loglevel": "info",
     "probing_sec": 3, # probing interval in seconds
-    "multiplier": 1, # multiplier for each files, only for testing purpose
+    "multiplier": 10, # multiplier for each files, only for testing purpose
     "mp_opt": True,
     "network_limit": 1000, # Network limit (Mbps) per thread
     "io_limit": 1200, # I/O limit (Mbps) per thread
     "memory_use": {
-        "maximum": 30,
+        "maximum": 5,
         "threshold": 1,
     },
     "fixed_probing": {
