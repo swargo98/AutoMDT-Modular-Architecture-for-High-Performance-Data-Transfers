@@ -171,11 +171,11 @@ class NetworkOptimizationEnv(gym.Env):
         # Penalize actions that hit thread limits
         penalty = 0
         if new_thread_counts[0] == self.thread_limits[0] or new_thread_counts[0] == configurations['max_cc']['io']:
-            penalty -= 0.60  # Adjust penalty value as needed
+            penalty -= 0.50  # Adjust penalty value as needed
         if new_thread_counts[1] == self.thread_limits[0] or new_thread_counts[1] == configurations['max_cc']['network']:
-            penalty -= 0.60
+            penalty -= 0.50
         if new_thread_counts[2] == self.thread_limits[0] or new_thread_counts[2] == configurations['max_cc']['write']:
-            penalty -= 0.60
+            penalty -= 0.50
 
         # Add penalty for large changes
         # change_penalty = -0.1 * np.sum(np.abs(action)) / self.max_delta

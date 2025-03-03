@@ -462,10 +462,10 @@ class PPOOptimizer:
         self.current_reward = 0
 
         oneGB = 1024
-        self.optimal_read_thread = 12
-        self.optimal_network_thread = 12
-        self.optimal_write_thread = 12
-        self.stable_bw = 12 * configurations["network_limit"]
+        self.optimal_read_thread = 5
+        self.optimal_network_thread = 5
+        self.optimal_write_thread = 5
+        self.stable_bw = 5 * configurations["network_limit"]
 
         self.utility_read = 0
         self.utility_network = 0
@@ -478,10 +478,10 @@ class PPOOptimizer:
 
         # print("Optimizing with PPO...")
 
-        if os.path.exists('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv'):
-            os.remove('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv')
-        if os.path.exists('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv'):
-            os.remove('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv')
+        if os.path.exists('threads_dicrete_w_history_minibatch_mlp_deepseek_v9.csv'):
+            os.remove('threads_dicrete_w_history_minibatch_mlp_deepseek_v9.csv')
+        if os.path.exists('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v9.csv'):
+            os.remove('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v9.csv')
 
         state = self.get_state(is_start=True)
 
@@ -496,19 +496,19 @@ class PPOOptimizer:
             mini_batch_size=32   # e.g., batch size of 32
         )
 
-        policy_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v8_policy_400000.pth'
-        value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v8_value_400000.pth'
+        policy_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v9_policy_400000.pth'
+        value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v9_value_400000.pth'
         optimals = [7, 7, 7, 7000]
 
         # print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
         load_model(self.agent, "models/"+policy_model, "models/"+value_model)
         # print("Model loaded successfully.")
 
-        rewards = train_ppo(self.env, self.agent, max_episodes=100)
+        rewards = train_ppo(self.env, self.agent, max_episodes=600)
 
-        # plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.pdf')
-        # plot_threads_csv('threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'threads/inference_threads_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png')
-        # plot_throughputs_csv('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals, 'throughputs/inference_throughputs_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v8_.png') 
+        # plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v9_.pdf')
+        # plot_threads_csv('threads_dicrete_w_history_minibatch_mlp_deepseek_v9.csv', optimals, 'threads/inference_threads_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v9_.png')
+        # plot_throughputs_csv('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v9.csv', optimals, 'throughputs/inference_throughputs_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v9_.png') 
 
     def get_state(self, is_start=False):
         # print("Getting State")
@@ -556,7 +556,7 @@ class PPOOptimizer:
         write_thread_set.start()
 
         logger.info("Probing Parameters - [Read, Network, Write]: {0}, {1}, {2}".format(read_thread, network_thread, write_thread))
-        with open('threads_log_ppo_v8_2.csv', 'a') as f:
+        with open('threads_log_ppo_v9_2.csv', 'a') as f:
             f.write(f"{[read_thread, network_thread]}\n{[write_thread]}\n")
 
         for i in range(len(transfer_process_status)):
@@ -614,7 +614,7 @@ class PPOOptimizer:
         write_thrpt = get_write_throughput()
 
         print(f"Throughputs -- I/O: {io_thrpt}, Network: {net_thrpt}, Write: {write_thrpt}")
-        with open('throughputs_log_ppo_v8_2.csv', 'a') as f:
+        with open('throughputs_log_ppo_v9_2.csv', 'a') as f:
             f.write(f"{io_thrpt}, {net_thrpt}\n{write_thrpt}\n")
 
         if io_thrpt == exit_signal or write_thrpt == exit_signal:
@@ -641,8 +641,8 @@ class PPOOptimizer:
         utility_network = (net_thrpt/self.K ** network_thread)
         utility_write = (write_thrpt/self.K ** write_thread)
 
-        throughput_reward = ((io_thrpt + net_thrpt + write_thrpt)/3) / self.stable_bw
-        thread_penalty = (read_thread/self.optimal_read_thread - 1)**2 + (network_thread/self.optimal_network_thread - 1)**2 + (write_thread/self.optimal_write_thread - 1)**2
+        throughput_reward = ((io_thrpt + net_thrpt + write_thrpt)/(3 * configurations['probing_sec'])) / self.stable_bw
+        thread_penalty = ((read_thread/self.optimal_read_thread) + (network_thread/self.optimal_network_thread) + (write_thread/self.optimal_write_thread))/3
         reward = throughput_reward - 0.3 * thread_penalty
         self.current_reward = reward
 
@@ -856,7 +856,7 @@ def report_network_throughput(start_time):
             previous_time, previous_total = time_since_begining, total_bytes
             previous_transfer_file_offsets = list(transfer_file_offsets)
             t2 = time.time()
-            with open('timed_log_network_ppo_1.csv', 'a') as f:
+            with open('timed_log_network_ppo_9.csv', 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(transfer_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 
@@ -881,7 +881,7 @@ def report_io_throughput(start_time):
             logger.info(f"I/O Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
 
             t2 = time.time()
-            with open('timed_log_read_ppo_1.csv', 'a') as f:
+            with open('timed_log_read_ppo_9.csv', 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(io_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 

@@ -24,8 +24,8 @@ configurations = {
     "probing_sec": 3, # probing interval in seconds
     "multiplier": 10, # multiplier for each files, only for testing purpose
     "mp_opt": True,
-    "network_limit": 1000, # Network limit (Mbps) per thread
-    "io_limit": 1200, # I/O limit (Mbps) per thread
+    "network_limit": 100, # Network limit (Mbps) per thread
+    "io_limit": 333, # I/O limit (Mbps) per thread
     "memory_use": {
         "maximum": 5,
         "threshold": 1,
