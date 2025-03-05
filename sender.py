@@ -626,6 +626,10 @@ class PPOOptimizer:
         self.prev_network_throughput = self.current_network_throughput
         self.prev_reward = self.current_reward
 
+        # io_thrpt /= configurations['probing_sec']
+        # net_thrpt /= configurations['probing_sec']
+        # write_thrpt /= configurations['probing_sec']
+        
         self.current_read_thread = read_thread
         self.current_network_thread = network_thread
         self.current_write_thread = write_thread
@@ -633,13 +637,12 @@ class PPOOptimizer:
         self.current_network_throughput = net_thrpt
         self.used_disk = used_disk
 
+
         utility_read = (io_thrpt/self.K ** read_thread)
         utility_network = (net_thrpt/self.K ** network_thread)
         utility_write = (write_thrpt/self.K ** write_thread)
 
-        throughput_reward = ((io_thrpt + net_thrpt + write_thrpt)/(3 * configurations['probing_sec'])) / self.stable_bw
-        thread_penalty = ((read_thread/self.optimal_read_thread) + (network_thread/self.optimal_network_thread) + (write_thread/self.optimal_write_thread))/3
-        reward = throughput_reward - 0.3 * thread_penalty
+        reward = utility_read + utility_network + utility_write
         self.current_reward = reward
 
 

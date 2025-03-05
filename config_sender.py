@@ -38,9 +38,9 @@ configurations = {
         "io": 20,
         'write': 20
     },
-    "multiplier": 1, # multiplier for each files, only for testing purpose
-    "model_version": '9',
-    "mode": 'inference',
+    "multiplier": 30, # multiplier for each files, only for testing purpose
+    "model_version": '12',
+    "mode": 'train',
     'inference_value_model': 'finetune_v8_value_550.pth',
     'inference_policy_model': 'finetune_v8_policy_550.pth',
 }
