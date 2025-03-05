@@ -200,20 +200,22 @@ class NetworkOptimizationEnv(gym.Env):
 
     #     return self.state.to_array()
     
-    def reset(self, simulator=None):
-        sender_buffer_remaining_capacity = self.state.sender_buffer_remaining_capacity
-        receiver_buffer_remaining_capacity = self.state.receiver_buffer_remaining_capacity
-        read_thread = np.random.randint(3, 19)
-        network_thread = np.random.randint(3, 19)
-        write_thread = np.random.randint(3, 19)
-        self.state = SimulatorState(
-            sender_buffer_remaining_capacity=sender_buffer_remaining_capacity,
-            receiver_buffer_remaining_capacity=receiver_buffer_remaining_capacity,
-            read_thread=read_thread,
-            network_thread=network_thread,
-            write_thread=write_thread,
-            history_length=self.history_length
-        )
+    def reset(self, is_inference = False):
+        print(f'is_inference: {is_inference}')
+        if not is_inference:
+            sender_buffer_remaining_capacity = self.state.sender_buffer_remaining_capacity
+            receiver_buffer_remaining_capacity = self.state.receiver_buffer_remaining_capacity
+            read_thread = np.random.randint(3, 19)
+            network_thread = np.random.randint(3, 19)
+            write_thread = np.random.randint(3, 19)
+            self.state = SimulatorState(
+                sender_buffer_remaining_capacity=sender_buffer_remaining_capacity,
+                receiver_buffer_remaining_capacity=receiver_buffer_remaining_capacity,
+                read_thread=read_thread,
+                network_thread=network_thread,
+                write_thread=write_thread,
+                history_length=self.history_length
+            )
         
         self.current_step = 0
         self.trajectory = [self.state.copy()]
@@ -593,7 +595,7 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
     total_rewards = []
     for episode in tqdm(range(1, max_episodes + 1), desc="Episodes"):
         # print(f"Episode {episode}")
-        state = env.reset()
+        state = env.reset(is_inference)
         episode_reward = 0
         exit_flag = False
         for t in range(env.max_steps):

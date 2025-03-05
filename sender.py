@@ -491,17 +491,20 @@ class PPOOptimizer:
 
         policy_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_policy_400000.pth'
         value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_value_400000.pth'
+        is_inference = False
+
+        if configurations['mode'] == 'inference':
+            is_inference = True
+            policy_model = configurations['inference_policy_model']
+            value_model = configurations['inference_value_model']
+        
         optimals = [7, 7, 7, 7000]
 
-        # print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
+        print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
         load_model(self.agent, "models/"+policy_model, "models/"+value_model)
         # print("Model loaded successfully.")
 
-        rewards = train_ppo(self.env, self.agent, max_episodes=1000)
-
-        # plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_.pdf')
-        # plot_threads_csv('threads_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', optimals, 'threads/inference_threads_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_.png')
-        # plot_throughputs_csv('throughputs_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', optimals, 'throughputs/inference_throughputs_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_.png') 
+        rewards = train_ppo(self.env, self.agent, max_episodes=1000, is_inference = is_inference)
 
     def get_state(self, is_start=False):
         # print("Getting State")

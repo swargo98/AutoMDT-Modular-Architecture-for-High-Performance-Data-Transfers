@@ -22,7 +22,6 @@ configurations = {
     "K": 1.05, # cost of increasing concurrency
     "loglevel": "info",
     "probing_sec": 3, # probing interval in seconds
-    "multiplier": 50, # multiplier for each files, only for testing purpose
     "mp_opt": True,
     "network_limit": 100, # Network limit (Mbps) per thread
     "io_limit": 333, # I/O limit (Mbps) per thread
@@ -39,5 +38,9 @@ configurations = {
         "io": 20,
         'write': 20
     },
+    "multiplier": 1, # multiplier for each files, only for testing purpose
     "model_version": '9',
+    "mode": 'inference',
+    'inference_value_model': 'finetune_v8_value_550.pth',
+    'inference_policy_model': 'finetune_v8_policy_550.pth',
 }
