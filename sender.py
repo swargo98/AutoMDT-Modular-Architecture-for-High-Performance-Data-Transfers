@@ -497,7 +497,7 @@ class PPOOptimizer:
         load_model(self.agent, "models/"+policy_model, "models/"+value_model)
         # print("Model loaded successfully.")
 
-        rewards = train_ppo(self.env, self.agent, max_episodes=600)
+        rewards = train_ppo(self.env, self.agent, max_episodes=1000)
 
         # plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_.pdf')
         # plot_threads_csv('threads_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', optimals, 'threads/inference_threads_plot_training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_.png')

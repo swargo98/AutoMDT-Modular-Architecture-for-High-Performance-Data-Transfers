@@ -22,7 +22,7 @@ configurations = {
     "K": 1.05, # cost of increasing concurrency
     "loglevel": "info",
     "probing_sec": 3, # probing interval in seconds
-    "multiplier": 1, # multiplier for each files, only for testing purpose
+    "multiplier": 50, # multiplier for each files, only for testing purpose
     "mp_opt": True,
     "network_limit": 100, # Network limit (Mbps) per thread
     "io_limit": 333, # I/O limit (Mbps) per thread

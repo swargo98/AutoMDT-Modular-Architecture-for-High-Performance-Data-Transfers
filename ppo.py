@@ -116,7 +116,7 @@ class SimulatorState:
 class NetworkOptimizationEnv(gym.Env):
     def __init__(self, black_box_function, state, history_length=5):
         super(NetworkOptimizationEnv, self).__init__()
-        self.thread_limits = [2, 100]  # Threads can be between 1 and 10
+        self.thread_limits = [2, 20]  # Threads can be between 1 and 10
 
         self.action_space = spaces.MultiDiscrete([5, 5, 5])
         obs_dim = 5 + 7 * history_length
@@ -193,7 +193,27 @@ class NetworkOptimizationEnv(gym.Env):
         # Return state as NumPy array
         return self.state.to_array(), reward, grads, bottleneck_idx, done, {}
 
+    # def reset(self, simulator=None):
+        
+    #     self.current_step = 0
+    #     self.trajectory = [self.state.copy()]
+
+    #     return self.state.to_array()
+    
     def reset(self, simulator=None):
+        sender_buffer_remaining_capacity = self.state.sender_buffer_remaining_capacity
+        receiver_buffer_remaining_capacity = self.state.receiver_buffer_remaining_capacity
+        read_thread = np.random.randint(3, 19)
+        network_thread = np.random.randint(3, 19)
+        write_thread = np.random.randint(3, 19)
+        self.state = SimulatorState(
+            sender_buffer_remaining_capacity=sender_buffer_remaining_capacity,
+            receiver_buffer_remaining_capacity=receiver_buffer_remaining_capacity,
+            read_thread=read_thread,
+            network_thread=network_thread,
+            write_thread=write_thread,
+            history_length=self.history_length
+        )
         
         self.current_step = 0
         self.trajectory = [self.state.copy()]
@@ -606,7 +626,7 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
             agent.update(memory)
 
         # print(f"Episode {episode}\tLast State: {state}\tReward: {reward}")
-        with open('episode_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', 'a') as f:
+        with open('episode_rewards_training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', 'a') as f:
                 f.write(f"Episode {episode}, Last State: {np.round(state[-3:])}, Reward: {reward}\n")
 
         memory.clear()
@@ -616,7 +636,7 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
         if episode % 10 == 0:
             avg_reward = np.mean(total_rewards[-10:])
             print(f"Episode {episode}\tAverage Reward: {avg_reward:.2f}")
-            save_model(agent, "models/finetune_v8_policy_"+ str(episode) +".pth", "models/finetune_v8_value_"+ str(episode) +".pth")
+            save_model(agent, "models/finetune_v" + configurations['model_version'] +"_policy_"+ str(episode) +".pth", "models/finetune_v' + configurations['model_version'] +'_value_"+ str(episode) +".pth")
             print("Model saved successfully.")
     return total_rewards
 
@@ -637,11 +657,11 @@ import csv
 
 import pandas as pd
 
-def plot_threads_csv(threads_file='threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals = None, output_file='threads_plot.png'):
+def plot_threads_csv(threads_file='threads_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', optimals = None, output_file='threads_plot.png'):
     optimal_read, optimal_network, optimal_write, _ = optimals
     data = []
 
-    # Read data from threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv
+    # Read data from threads_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv
     with open(threads_file, 'r') as f:
         reader = csv.reader(f)
         for row in reader:
@@ -689,17 +709,17 @@ def plot_threads_csv(threads_file='threads_dicrete_w_history_minibatch_mlp_deeps
     # print(f"Saved thread count plot to {output_file}")
 
     # save average thread count to a file
-    with open('average_threads_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', 'a') as f:
+    with open('average_threads_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', 'a') as f:
         f.write(f"optimal: {optimal_read}; Actual: {np.mean(df['Read Threads'])}\n")
         f.write(f"optimal: {optimal_network}; Actual: {np.mean(df['Network Threads'])}\n")
         f.write(f"optimal: {optimal_write}; Actual: {np.mean(df['Write Threads'])}\n")
 
 # Function to plot throughputs with rolling averages
-def plot_throughputs_csv(throughputs_file='throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', optimals = None, output_file='throughputs_plot.png'):
+def plot_throughputs_csv(throughputs_file='throughputs_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', optimals = None, output_file='throughputs_plot.png'):
     optimal_throughput = optimals[-1]
     data = []
 
-    # Read data from throughputs_dicrete_w_history_minibatch_mlp_deepseek_v8.csv
+    # Read data from throughputs_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv
     with open(throughputs_file, 'r') as f:
         reader = csv.reader(f)
         for row in reader:
@@ -747,7 +767,7 @@ def plot_throughputs_csv(throughputs_file='throughputs_dicrete_w_history_minibat
     # print(f"Saved throughput plot to {output_file}")
 
     # save average throughput to a file
-    with open('average_throughput_dicrete_w_history_minibatch_mlp_deepseek_v8.csv', 'a') as f:
+    with open('average_throughput_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', 'a') as f:
         f.write(f"{np.mean(df['Read Throughput'])}\n")
         f.write(f"{np.mean(df['Network Throughput'])}\n")
         f.write(f"{np.mean(df['Write Throughput'])}\n")
