@@ -17,4 +17,5 @@ configurations = {
     "file_transfer": True,
     "io_limit": 333, # I/O limit (Mbps) per thread
     "loglevel": "info",
+    "model_version": '9',
 }

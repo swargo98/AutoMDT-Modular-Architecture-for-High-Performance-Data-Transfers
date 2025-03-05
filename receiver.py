@@ -469,6 +469,9 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, graceful_exit)
     signal.signal(signal.SIGTERM, graceful_exit)
 
+    if os.path.exists('timed_log_write_ppo_' + configurations['model_version'] +'.csv'):
+        os.remove('timed_log_write_ppo_' + configurations['model_version'] +'.csv')
+
     log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
     log_file = f'logs/receiver.{datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")}.log'
 

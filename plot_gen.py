@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Define types for comparison
-types = ["ppo_1", "ppo_2"]  # Add more types as needed
+types = ["ppo_9"]  # Add more types as needed
 
 # Generate file paths dynamically
 file_paths = {}
