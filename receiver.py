@@ -277,10 +277,10 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
     @dispatcher.public
     def get_state():
         nonlocal prev_thrpt, prev_thread, used, curr_thrpt, curr_thread
-        thrpt_change = (curr_thrpt - prev_thrpt)/prev_thrpt if prev_thrpt > 0 else 0
+        thrpt = curr_thrpt
         thread_change = (curr_thread - prev_thread)/prev_thread if prev_thread > 0 else 0
-        free_percentage  = (memory_limit - used)/memory_limit
-        return [thrpt_change, thread_change, free_percentage, curr_thread]
+        free  = (memory_limit - used)
+        return [thrpt, thread_change, free, curr_thread]
     
     @dispatcher.public
     def set_thread(thread):
