@@ -7,8 +7,10 @@ configurations = {
     },
     "rpc_port":"5002",
     "data_dir": "src/",
-    # "method": "bayes", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "method": "ppo",
+    # "mp_opt": True,
+    # "method": "ppo",
+    "mp_opt": True,
+    "method": "mgd", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
@@ -22,7 +24,6 @@ configurations = {
     "K": 1.05, # cost of increasing concurrency
     "loglevel": "info",
     "probing_sec": 3, # probing interval in seconds
-    "mp_opt": True,
     "network_limit": 100, # Network limit (Mbps) per thread
     "io_limit": 333, # I/O limit (Mbps) per thread
     "memory_use": {
@@ -38,9 +39,9 @@ configurations = {
         "io": 20,
         'write': 20
     },
-    "multiplier": 30, # multiplier for each files, only for testing purpose
-    "model_version": '12',
-    "mode": 'train',
-    'inference_value_model': 'finetune_v8_value_550.pth',
-    'inference_policy_model': 'finetune_v8_policy_550.pth',
+    "multiplier": 1, # multiplier for each files, only for testing purpose
+    "model_version": 'gradient_mgd',
+    "mode": 'inference',
+    'inference_value_model': 'training_dicrete_w_history_minibatch_mlp_deepseek_v12_value_400000.pth',
+    'inference_policy_model': 'training_dicrete_w_history_minibatch_mlp_deepseek_v12_policy_400000.pth',
 }
