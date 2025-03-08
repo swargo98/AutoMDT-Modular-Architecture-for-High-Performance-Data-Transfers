@@ -508,31 +508,25 @@ class PPOOptimizer:
 
     def get_state(self, is_start=False):
         # print("Getting State")
-        write_thrpt_change, write_thread_change, write_free_percentage, write_thread = 0, 0, 1, 2
+        write_thrpt, write_free, write_thread = 0, 1, 2 ###NEED TO FIX WRITE THROUGHPUT, and write buffer FROM RECEIVER SIDE
         if not is_start:
-            write_thrpt_change, write_thread_change, write_free_percentage, write_thread = get_write_state()
-        read_thrpt_change = (self.current_read_throughput - self.prev_read_throughput)/self.prev_read_throughput if self.prev_read_throughput > 0 else 0
-        network_thrpt_change = (self.current_network_throughput - self.prev_network_throughput)/self.prev_network_throughput if self.prev_network_throughput > 0 else 0
-        read_thread_change = (self.current_read_thread - self.prev_read_thread)/self.prev_read_thread if self.prev_read_thread > 0 else 0
-        network_thread_change = (self.current_network_thread - self.prev_network_thread)/self.prev_network_thread if self.prev_network_thread > 0 else 0
-        reward_change = (self.current_reward - self.prev_reward)/self.prev_reward if self.prev_reward > 0 else 0
-        free_disk_percentage = (memory_limit - self.used_disk)/memory_limit
+            write_thrpt, _, write_free_percentage, write_thread = get_write_state()
+        read_thrpt = self.current_read_throughput
+        network_thrpt = self.current_network_throughput
+        read_thread = self.current_read_thread
+        network_thread = self.current_network_thread
+        free_disk = (memory_limit - self.used_disk)
 
         # print(f"State -- Read: {self.current_read_thread}, Network: {self.current_network_thread}, Write: {write_thread}")
 
-        state = SimulatorState(sender_buffer_remaining_capacity=free_disk_percentage,
-                               receiver_buffer_remaining_capacity=write_free_percentage,
-                               read_throughput_change=read_thrpt_change,
-                               network_throughput_change=network_thrpt_change,
-                               write_throughput_change=write_thrpt_change,
-                               read_thread_change=read_thread_change,
-                               write_thread_change=write_thread_change,
-                               network_thread_change=network_thread_change,
-                               read_thread=self.current_read_thread,
+        state = SimulatorState(sender_buffer_remaining_capacity=free_disk,
+                               receiver_buffer_remaining_capacity=write_free,
+                               read_throughput=read_thrpt,
+                               network_throughput=network_thrpt,
+                               write_throughput=write_thrpt,
+                               read_thread=read_thread,
                                write_thread=write_thread,
-                               network_thread=self.current_network_thread,
-                               rewards_change=reward_change,
-                               history_length=self.history_length
+                               network_thread=network_thread
                                )
         
         return state
@@ -656,11 +650,9 @@ class PPOOptimizer:
         self.utility_network = utility_network
         self.utility_write = utility_write
 
-        throughputs = [io_thrpt, net_thrpt, write_thrpt]
-        bottleneck_idx = np.argmin(throughputs)
         final_state = self.get_state()
 
-        return reward, final_state, grads, bottleneck_idx
+        return reward, final_state
         
 
 
