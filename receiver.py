@@ -203,8 +203,6 @@ def io_probing(params):
     logger.info(f"Shared Memory -- Used: {used}GB")
     logger.info("I/O Probing -- Throughput: {0}Mbps, Score: {1}".format(
         np.round(thrpt), score_value))
-    with open('shared_memory_log_receiver_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
-                f.write(f"{used}\n")
 
     with open('throughputs_log_univ_gd.csv', 'a') as f:
             f.write(f"{thrpt}\n")
@@ -236,6 +234,9 @@ def io_probing_ppo(params):
     used = get_dir_size(logger, tmpfs_dir)
     logger.info(f"Shared Memory -- Used: {used}GB")
     logger.info("I/O Probing -- Throughput: {0}Mbps".format(np.round(thrpt)))
+
+    with open('shared_memory_log_receiver_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
+                f.write(f"{used}\n")
 
     if transfer_done.value == 1 and move_complete.value >= 15 and move_complete.value >= transfer_complete.value:
         print('234')

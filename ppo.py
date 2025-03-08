@@ -128,7 +128,7 @@ class NetworkOptimizationEnv(gym.Env):
         # Adjust reward
         reward = utility + penalty
 
-        self.current_step += 1
+        self.current_step += 5
         done = self.current_step >= self.max_steps
 
         # Record the state

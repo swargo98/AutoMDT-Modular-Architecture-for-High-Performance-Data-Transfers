@@ -509,7 +509,7 @@ class PPOOptimizer:
         network_thrpt = self.current_network_throughput
         read_thread = self.current_read_thread
         network_thread = self.current_network_thread
-        free_disk = (memory_limit - self.used_disk)
+        free_disk = (memory_limit - self.used_disk) * 1024 # GB -> MB
 
         # print(f"State -- Read: {self.current_read_thread}, Network: {self.current_network_thread}, Write: {write_thread}")
 
@@ -522,7 +522,7 @@ class PPOOptimizer:
                                write_thread=write_thread,
                                network_thread=network_thread
                                )
-        
+        # print(f"State 525: {state.to_array()}")
         return state
 
     def ppo_probing(self, params):
@@ -648,6 +648,7 @@ class PPOOptimizer:
         self.utility_write = utility_write
 
         final_state = self.get_state()
+        # print(f"State 651: {final_state.to_array()}")
 
         return reward, final_state
         
