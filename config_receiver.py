@@ -15,7 +15,7 @@ configurations = {
     "K": 1.02,
     "probing_sec": 3, # probing interval in seconds
     "file_transfer": True,
-    "io_limit": 333, # I/O limit (Mbps) per thread
+    "io_limit": 150, # I/O limit (Mbps) per thread
     "loglevel": "info",
-    "model_version": '12',
+    "model_version": 'residual',
 }
