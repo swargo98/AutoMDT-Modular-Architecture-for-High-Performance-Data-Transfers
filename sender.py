@@ -12,7 +12,7 @@ from threading import Thread
 from config_sender import configurations
 from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, gradient_multivariate
 from utils import tcp_stats, run, available_space, get_dir_size
-from ppo import SimulatorState, NetworkOptimizationEnv, PPOAgentDiscrete, load_model, train_ppo, plot_rewards, plot_threads_csv, plot_throughputs_csv
+from ppo import SimulatorState, NetworkOptimizationEnv, PPOAgentContinuous, load_model, train_ppo, plot_rewards, plot_threads_csv, plot_throughputs_csv
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -481,16 +481,10 @@ class PPOOptimizer:
         # print("Creating Environment")
 
         self.env = NetworkOptimizationEnv(black_box_function=self.get_reward, state=state, history_length=self.history_length)
-        self.agent = PPOAgentDiscrete(
-            state_dim=self.obs_dim,
-            lr=1e-4,
-            eps_clip=0.1,
-            K_epochs=10,         # e.g., 10 epochs
-            mini_batch_size=32   # e.g., batch size of 32
-        )
+        self.agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
 
-        policy_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_policy_400000.pth'
-        value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_value_400000.pth'
+        # policy_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_policy_400000.pth'
+        # value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_value_400000.pth'
         is_inference = False
 
         if configurations['mode'] == 'inference':
@@ -500,8 +494,8 @@ class PPOOptimizer:
         
         optimals = [7, 7, 7, 7000]
 
-        print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
-        load_model(self.agent, "models/"+policy_model, "models/"+value_model)
+        # print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
+        # load_model(self.agent, "models/"+policy_model, "models/"+value_model)
         # print("Model loaded successfully.")
 
         rewards = train_ppo(self.env, self.agent, max_episodes=1000, is_inference = is_inference)
@@ -588,6 +582,9 @@ class PPOOptimizer:
 
         logger.info(f"Shared Memory -- Used: {used_disk}GB")
         logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
+
+        with open('shared_memory_log_sender_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
+                f.write(f"{used_disk}\n")
 
         # print (f"tQueue: {tQueue}")
         if file_processed.value == file_count:

@@ -77,12 +77,14 @@ class NetworkOptimizationEnv(gym.Env):
         self.action_space = spaces.Box(low=np.array([self.thread_limits[0]] * 3),
                                high=np.array([self.thread_limits[1]] * 3),
                                dtype=np.float32)
+        
+        oneGB = 1024
 
         self.observation_space = spaces.Box(
             low=np.array([0, 0, 0, 0, 0, self.thread_limits[0], self.thread_limits[0], self.thread_limits[0]]),
             high=np.array([
-                self.simulator.sender_buffer_capacity,
-                self.simulator.receiver_buffer_capacity,
+                10 * oneGB,
+                10 * oneGB,
                 np.inf,  # Or maximum possible throughput values
                 np.inf,
                 np.inf,
@@ -97,7 +99,7 @@ class NetworkOptimizationEnv(gym.Env):
         self.get_utility_value = black_box_function
 
         self.state = state
-        self.max_steps = 10
+        self.max_steps = 1
         self.current_step = 0
 
         # For recording the trajectory
@@ -107,7 +109,7 @@ class NetworkOptimizationEnv(gym.Env):
         new_thread_counts = np.clip(np.round(action), self.thread_limits[0], self.thread_limits[1]).astype(np.int32)
 
         # Compute utility and update state
-        utility, self.state, _, _ = self.simulator.get_utility_value(new_thread_counts)
+        utility, self.state = self.get_utility_value(new_thread_counts)
 
         print(f"Utility: {utility}")
 
@@ -136,12 +138,14 @@ class NetworkOptimizationEnv(gym.Env):
         return self.state.to_array(), reward, done, {}
     
     def reset(self, is_inference = False):
+        print(is_inference)
         if not is_inference:
             read_thread = np.random.randint(3, 19)
             network_thread = np.random.randint(3, 19)
             write_thread = np.random.randint(3, 19)
             sender_buffer_remaining_capacity = self.state.sender_buffer_remaining_capacity
             receiver_buffer_remaining_capacity = self.state.receiver_buffer_remaining_capacity
+            print(f"READ: {read_thread}; NETWORK: {network_thread}; WRITE: {write_thread}")
 
             self.state = SimulatorState(
                 sender_buffer_remaining_capacity=sender_buffer_remaining_capacity,
@@ -321,11 +325,13 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
     memory = Memory()
     total_rewards = []
     for episode in tqdm(range(1, max_episodes + 1), desc="Episodes"):
-        state = env.reset()
+        state = env.reset(is_inference)
         episode_reward = 0
         exit_flag = False
         for t in range(env.max_steps):
+            print(f"State: {state}")
             action, action_logprob = agent.select_action(state)
+            print(f"Action: {np.round(action)}")
             next_state, reward, done, _ = env.step(action)
 
             print(f"Reward: {reward}")
