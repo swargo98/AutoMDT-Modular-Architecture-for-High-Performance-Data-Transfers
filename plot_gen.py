@@ -2,14 +2,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Define types for comparison
-types = ["ppo_9"]  # Add more types as needed
-
+types = ["ppo_residual", "ppo_marlin", "ppo_mgd"]  # Add more types as needed
+extension = 'network_bn'
 # Generate file paths dynamically
 file_paths = {}
 for t in types:
-    file_paths[f"read_{t}"] = f"timed_log_read_{t}.csv"
-    file_paths[f"network_{t}"] = f"timed_log_network_{t}.csv"
-    file_paths[f"write_{t}"] = f"timed_log_write_{t}.csv"
+    file_paths[f"read_{t}"] = f"timed_log_read_{t}_{extension}.csv"
+    file_paths[f"network_{t}"] = f"timed_log_network_{t}_{extension}.csv"
+    file_paths[f"write_{t}"] = f"timed_log_write_{t}_{extension}.csv"
 
 # Load all data into a dictionary
 data = {}
@@ -19,7 +19,7 @@ for key, path in file_paths.items():
     except FileNotFoundError:
         print(f"File not found: {path}")
 
-# Function to create a plot with 3 subplots
+# Function to create a plot with 3 subplots, using a rolling average of 5 points for the y-axis metric
 def generate_plot(metric, x_axis, y_axis, ylabel, filename):
     fig, axes = plt.subplots(3, 1, figsize=(8, 12), sharex=True)
     fig.suptitle(f"{ylabel} vs {x_axis.replace('_', ' ').capitalize()} ({metric.capitalize()})")
@@ -28,7 +28,12 @@ def generate_plot(metric, x_axis, y_axis, ylabel, filename):
         for t in types:
             df_key = f"{key}_{t}"
             if df_key in data:
-                axes[i].plot(data[df_key][x_axis], data[df_key][y_axis], label=f"{t}", marker='o')
+                df = data[df_key]
+                # Compute the rolling average of 5 points for the y_axis metric
+                y_values = df[y_axis].rolling(window=5).mean()
+                # Since the rolling average introduces NaNs in the first few rows, align x-axis accordingly
+                x_values = df[x_axis]
+                axes[i].plot(x_values, y_values, label=f"{t}")
         axes[i].set_ylabel(f"{key.capitalize()} {ylabel}")
         axes[i].legend()
 
@@ -41,5 +46,5 @@ def generate_plot(metric, x_axis, y_axis, ylabel, filename):
 for metric in ["throughputs", "threads"]:
     for x_axis in ["current_time", "time_since_beginning"]:
         ylabel = metric.capitalize()
-        filename = f"competing_{metric}_vs_{x_axis}.png"
+        filename = f"{extension}_{metric}_vs_{x_axis}.png"
         generate_plot(metric, x_axis, metric, ylabel, filename)
