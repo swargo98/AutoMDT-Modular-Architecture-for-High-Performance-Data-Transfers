@@ -99,7 +99,7 @@ class NetworkOptimizationEnv(gym.Env):
         self.get_utility_value = black_box_function
 
         self.state = state
-        self.max_steps = 1
+        self.max_steps = 10
         self.current_step = 0
 
         # For recording the trajectory
@@ -107,7 +107,13 @@ class NetworkOptimizationEnv(gym.Env):
 
     def step(self, action):
         new_thread_counts = np.clip(np.round(action), self.thread_limits[0], self.thread_limits[1]).astype(np.int32)
-
+        
+        # to get random values 
+        read_thread = np.random.randint(3, 19)
+        network_thread = np.random.randint(3, 19)
+        write_thread = np.random.randint(3, 19)
+        new_thread_counts = [read_thread, network_thread, write_thread]
+        
         # Compute utility and update state
         utility, self.state = self.get_utility_value(new_thread_counts)
 
@@ -128,7 +134,7 @@ class NetworkOptimizationEnv(gym.Env):
         # Adjust reward
         reward = utility + penalty
 
-        self.current_step += 5
+        self.current_step += 1
         done = self.current_step >= self.max_steps
 
         # Record the state
@@ -329,9 +335,7 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
         episode_reward = 0
         exit_flag = False
         for t in range(env.max_steps):
-            print(f"State: {state}")
             action, action_logprob = agent.select_action(state)
-            print(f"Action: {np.round(action)}")
             next_state, reward, done, _ = env.step(action)
 
             print(f"Reward: {reward}")
