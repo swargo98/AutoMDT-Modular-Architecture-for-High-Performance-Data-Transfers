@@ -107,6 +107,7 @@ class NetworkOptimizationEnv(gym.Env):
 
     def step(self, action):
         new_thread_counts = np.clip(np.round(action), self.thread_limits[0], self.thread_limits[1]).astype(np.int32)
+        print(new_thread_counts)
         
         # to get random values 
         # read_thread = np.random.randint(3, 19)

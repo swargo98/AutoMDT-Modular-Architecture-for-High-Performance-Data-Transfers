@@ -498,7 +498,7 @@ class PPOOptimizer:
         load_model(self.agent, "models/"+policy_model, "models/"+value_model)
         print("Model loaded successfully.")
 
-        rewards = train_ppo(self.env, self.agent, max_episodes=121, is_inference = is_inference)
+        rewards = train_ppo(self.env, self.agent, max_episodes=300, is_inference = is_inference)
 
     def get_state(self, is_start=False):
         # print("Getting State")
