@@ -109,10 +109,10 @@ class NetworkOptimizationEnv(gym.Env):
         new_thread_counts = np.clip(np.round(action), self.thread_limits[0], self.thread_limits[1]).astype(np.int32)
         
         # to get random values 
-        read_thread = np.random.randint(3, 19)
-        network_thread = np.random.randint(3, 19)
-        write_thread = np.random.randint(3, 19)
-        new_thread_counts = [read_thread, network_thread, write_thread]
+        # read_thread = np.random.randint(3, 19)
+        # network_thread = np.random.randint(3, 19)
+        # write_thread = np.random.randint(3, 19)
+        # new_thread_counts = [read_thread, network_thread, write_thread]
         
         # Compute utility and update state
         utility, self.state = self.get_utility_value(new_thread_counts)
@@ -359,7 +359,7 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
             agent.update(memory)
 
         # print(f"Episode {episode}\tLast State: {state}\tReward: {reward}")
-        with open('episode_rewards_residual_cl_v1_2.csv', 'a') as f:
+        with open('episode_rewards_residual_cl_finetune.csv', 'a') as f:
                 f.write(f"Episode {episode}, Last State: {np.round(state)}, Reward: {reward}\n")
 
         memory.clear()
@@ -369,8 +369,8 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
         if episode % 10 == 0:
             avg_reward = np.mean(total_rewards[-10:])
             print(f"Episode {episode}\tAverage Reward: {avg_reward:.2f}")
-        if episode % 100 == 0:
-            save_model(agent, "models/residual_cl_v1_policy_"+ str(episode) +".pth", "models/residual_cl_v1_value_"+ str(episode) +".pth")
+        if episode % 10 == 0:
+            save_model(agent, "models/residual_cl_finetune_policy_"+ str(episode) +".pth", "models/residual_cl_finetune_value_"+ str(episode) +".pth")
             print("Model saved successfully.")
     return total_rewards
 

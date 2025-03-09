@@ -483,8 +483,8 @@ class PPOOptimizer:
         self.env = NetworkOptimizationEnv(black_box_function=self.get_reward, state=state, history_length=self.history_length)
         self.agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
 
-        # policy_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_policy_400000.pth'
-        # value_model = 'training_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'_value_400000.pth'
+        policy_model = 'residual_cl_v1_policy_10000.pth'
+        value_model = 'residual_cl_v1_value_10000.pth'
         is_inference = False
 
         if configurations['mode'] == 'inference':
@@ -494,11 +494,11 @@ class PPOOptimizer:
         
         optimals = [7, 7, 7, 7000]
 
-        # print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
-        # load_model(self.agent, "models/"+policy_model, "models/"+value_model)
-        # print("Model loaded successfully.")
+        print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
+        load_model(self.agent, "models/"+policy_model, "models/"+value_model)
+        print("Model loaded successfully.")
 
-        rewards = train_ppo(self.env, self.agent, max_episodes=21, is_inference = is_inference)
+        rewards = train_ppo(self.env, self.agent, max_episodes=121, is_inference = is_inference)
 
     def get_state(self, is_start=False):
         # print("Getting State")
@@ -509,12 +509,12 @@ class PPOOptimizer:
         network_thrpt = self.current_network_throughput
         read_thread = self.current_read_thread
         network_thread = self.current_network_thread
-        free_disk = (memory_limit - self.used_disk) * 1024 # GB -> MB
+        free_disk = (memory_limit - self.used_disk)
 
         # print(f"State -- Read: {self.current_read_thread}, Network: {self.current_network_thread}, Write: {write_thread}")
 
-        state = SimulatorState(sender_buffer_remaining_capacity=free_disk,
-                               receiver_buffer_remaining_capacity=write_free,
+        state = SimulatorState(sender_buffer_remaining_capacity=free_disk * 1024,
+                               receiver_buffer_remaining_capacity=write_free * 1024,
                                read_throughput=read_thrpt,
                                network_throughput=network_thrpt,
                                write_throughput=write_thrpt,

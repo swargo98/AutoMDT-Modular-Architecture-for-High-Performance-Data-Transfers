@@ -712,11 +712,18 @@ if __name__ == '__main__':
         os.remove('throughputs_residual_cl_v1.csv')
 
     oneGB = 1024
-    simulator_generator = SimulatorGenerator()
-    _, simulator = simulator_generator.generate_simulator(episode=5600)
+    simulator = NetworkSystemSimulator(sender_buffer_capacity=6.304 * oneGB,
+                                            receiver_buffer_capacity=2.142 * oneGB,
+                                            read_throughput_per_thread=201,
+                                            network_throughput_per_thread=94,
+                                            write_throughput_per_thread=201,
+                                            read_bandwidth=3624,
+                                            write_bandwidth=2214,
+                                            network_bandwidth=1215,
+                                            track_states=True)
     env = NetworkOptimizationEnv(simulator=simulator)
     agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
-    rewards = train_ppo(env, agent, max_episodes=20000)
+    rewards = train_ppo(env, agent, max_episodes=10000)
     
     plot_rewards(rewards, 'PPO Training Rewards', 'training_rewards_training_residual_cl_v1.pdf')
 
