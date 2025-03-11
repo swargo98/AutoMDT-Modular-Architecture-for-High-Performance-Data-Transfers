@@ -107,7 +107,7 @@ class NetworkSystemSimulator:
             self.sender_buffer_in_use += throughput_increase
 
         time_taken = throughput_increase / self.read_throughput_per_thread
-        next_time = time + time_taken + 0.001
+        next_time = time + time_taken + 0.01
         if next_time < 1:
             self.thread_queue.put((next_time, "read"))
 
@@ -127,7 +127,7 @@ class NetworkSystemSimulator:
             self.receiver_buffer_in_use += throughput_increase
 
         time_taken = throughput_increase / self.network_throughput_per_thread
-        next_time = time + time_taken + 0.001
+        next_time = time + time_taken + 0.01
         if next_time < 1:
             self.thread_queue.put((next_time, "network"))
         # print(f"Network Thread end: Network Throughput: {throughput_increase}, Sender Buffer: {self.sender_buffer_in_use}, Receiver Buffer: {self.receiver_buffer_in_use}")
@@ -145,7 +145,7 @@ class NetworkSystemSimulator:
             self.receiver_buffer_in_use -= throughput_increase
 
         time_taken = throughput_increase / self.write_throughput_per_thread
-        next_time = time + time_taken + 0.001
+        next_time = time + time_taken + 0.01
         if next_time < 1:
             self.thread_queue.put((next_time, "write"))
         # print(f"Write Thread: Sender Buffer: {self.sender_buffer_in_use}, Receiver Buffer: {self.receiver_buffer_in_use}")
@@ -712,14 +712,14 @@ if __name__ == '__main__':
         os.remove('throughputs_residual_cl_v1.csv')
 
     oneGB = 1024
-    simulator = NetworkSystemSimulator(sender_buffer_capacity=6.304 * oneGB,
-                                            receiver_buffer_capacity=2.142 * oneGB,
+    simulator = NetworkSystemSimulator(sender_buffer_capacity=6.4 * oneGB,
+                                            receiver_buffer_capacity=6.8 * oneGB,
                                             read_throughput_per_thread=201,
-                                            network_throughput_per_thread=94,
-                                            write_throughput_per_thread=201,
-                                            read_bandwidth=3624,
-                                            write_bandwidth=2214,
-                                            network_bandwidth=1215,
+                                            network_throughput_per_thread=152,
+                                            write_throughput_per_thread=71,
+                                            read_bandwidth=3816.82,
+                                            write_bandwidth=1753.22,
+                                            network_bandwidth=1206.1,
                                             track_states=True)
     env = NetworkOptimizationEnv(simulator=simulator)
     agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
