@@ -238,7 +238,7 @@ def transfer_file(process_id):
                             
                         if float(offset) < float(io_file_offsets[file_id]) or file_id in rQueue:
                             logger.debug(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
-                            print(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
+                            # print(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
                             # with open(file_names[file_id] + '_offset.txt', 'a') as f:
                             #     f.write(f"224 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send} {float(io_file_offsets[file_id])} {file_id in rQueue}\n")
                             # if transfer_file_offsets[file_id] > offset:
@@ -483,22 +483,28 @@ class PPOOptimizer:
         self.env = NetworkOptimizationEnv(black_box_function=self.get_reward, state=state, history_length=self.history_length)
         self.agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
 
-        policy_model = 'residual_cl_v1_policy_10000.pth'
-        value_model = 'residual_cl_v1_value_10000.pth'
+        policy_model = 'residual_cl_v1_policy_9100.pth'
+        value_model = 'residual_cl_v1_value_9100.pth'
         is_inference = False
+        is_random = False
 
         if configurations['mode'] == 'inference':
             is_inference = True
             policy_model = configurations['inference_policy_model']
             value_model = configurations['inference_value_model']
-        
+        elif configurations['mode'] == 'finetune':
+            policy_model = configurations['finetune_policy_model']
+            value_model = configurations['finetune_value_model']
+        else:
+            is_random = True
+
         optimals = [7, 7, 7, 7000]
 
         print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
         load_model(self.agent, "models/"+policy_model, "models/"+value_model)
         print("Model loaded successfully.")
 
-        rewards = train_ppo(self.env, self.agent, max_episodes=300, is_inference = is_inference)
+        rewards = train_ppo(self.env, self.agent, max_episodes=configurations['max_episodes'], is_inference = is_inference, is_random = is_random)
 
     def get_state(self, is_start=False):
         # print("Getting State")
@@ -845,7 +851,10 @@ def report_network_throughput(start_time):
             previous_time, previous_total = time_since_begining, total_bytes
             previous_transfer_file_offsets = list(transfer_file_offsets)
             t2 = time.time()
-            with open('timed_log_network_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
+            fname = 'timed_log_network_ppo_' + configurations['model_version'] +'.csv'
+            if configurations['competing_transfer'] > 0:
+                fname = fname = 'timed_log_network_ppo_' + configurations['model_version'] + '_' + str(configurations['competing_transfer']) + '.csv'
+            with open(fname, 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(transfer_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 
@@ -870,7 +879,10 @@ def report_io_throughput(start_time):
             logger.info(f"I/O Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
 
             t2 = time.time()
-            with open('timed_log_read_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
+            fname = 'timed_log_read_ppo_' + configurations['model_version'] +'.csv'
+            if configurations['competing_transfer'] > 0:
+                fname = fname = 'timed_log_read_ppo_' + configurations['model_version'] + '_' + str(configurations['competing_transfer']) + '.csv'
+            with open(fname, 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(io_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 

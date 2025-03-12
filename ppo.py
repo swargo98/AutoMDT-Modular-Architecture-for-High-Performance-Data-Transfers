@@ -105,15 +105,15 @@ class NetworkOptimizationEnv(gym.Env):
         # For recording the trajectory
         self.trajectory = []
 
-    def step(self, action):
+    def step(self, action, is_random=False):
         new_thread_counts = np.clip(np.round(action), self.thread_limits[0], self.thread_limits[1]).astype(np.int32)
         print(new_thread_counts)
         
-        # to get random values 
-        # read_thread = np.random.randint(3, 19)
-        # network_thread = np.random.randint(3, 19)
-        # write_thread = np.random.randint(3, 19)
-        # new_thread_counts = [read_thread, network_thread, write_thread]
+        if is_random:
+            read_thread = np.random.randint(3, 19)
+            network_thread = np.random.randint(3, 19)
+            write_thread = np.random.randint(3, 19)
+            new_thread_counts = [read_thread, network_thread, write_thread]
         
         # Compute utility and update state
         utility, self.state = self.get_utility_value(new_thread_counts)
@@ -261,9 +261,11 @@ class PPOAgentContinuous:
         self.eps_clip = eps_clip
         self.MseLoss = nn.MSELoss()
 
-    def select_action(self, state):
+    def select_action(self, state, is_inference=False):
         state = torch.FloatTensor(state).to(device)
         mean, std = self.policy_old(state)
+        if is_inference:
+            std *= 0.5
         dist = Normal(mean, std)
         action = dist.sample()
         action_logprob = dist.log_prob(action)
@@ -328,7 +330,7 @@ class Memory:
 
 from tqdm import tqdm
 
-def train_ppo(env, agent, max_episodes=1000, is_inference=False):
+def train_ppo(env, agent, max_episodes=1000, is_inference=False, is_random=False):
     memory = Memory()
     total_rewards = []
     for episode in tqdm(range(1, max_episodes + 1), desc="Episodes"):
@@ -336,8 +338,8 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
         episode_reward = 0
         exit_flag = False
         for t in range(env.max_steps):
-            action, action_logprob = agent.select_action(state)
-            next_state, reward, done, _ = env.step(action)
+            action, action_logprob = agent.select_action(state, is_inference)
+            next_state, reward, done, _ = env.step(action, is_random)
 
             print(f"Reward: {reward}")
 
@@ -371,7 +373,7 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False):
             avg_reward = np.mean(total_rewards[-10:])
             print(f"Episode {episode}\tAverage Reward: {avg_reward:.2f}")
         if episode % 10 == 0:
-            save_model(agent, "models/residual_cl_finetune_policy_"+ str(episode) +".pth", "models/residual_cl_finetune_value_"+ str(episode) +".pth")
+            save_model(agent, "models/read_bn_finetune_policy_"+ str(episode) +".pth", "models/read_bn_finetune_value_"+ str(episode) +".pth")
             print("Model saved successfully.")
     return total_rewards
 

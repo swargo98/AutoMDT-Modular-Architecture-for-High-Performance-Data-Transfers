@@ -203,9 +203,9 @@ class NetworkSystemSimulator:
         # print(f"Read thread: {read_thread}, Network thread: {network_thread}, Write thread: {write_thread}, Utility: {utility}")
 
         if self.track_states:
-            with open('threads.csv', 'a') as f:
+            with open('threads_read_bn.csv', 'a') as f:
                 f.write(f"{read_thread}, {network_thread}, {write_thread}\n")
-            with open('throughputs.csv', 'a') as f:
+            with open('throughputs_read_bn.csv', 'a') as f:
                 f.write(f"{self.read_throughput}, {self.network_throughput}, {self.write_throughput}\n")
 
         final_state = SimulatorState(self.sender_buffer_capacity-self.sender_buffer_in_use,
@@ -568,7 +568,7 @@ def train_ppo(env, agent, max_episodes=1000):
             avg_reward = np.mean(total_rewards[-100:])
             print(f"Episode {episode}\tAverage Reward: {avg_reward:.2f}")
         if episode % 100 == 0:
-            save_model(agent, "models/residual_cl_v1_policy_"+ str(episode) +".pth", "models/residual_cl_v1_value_"+ str(episode) +".pth")
+            save_model(agent, "models/network_bn_offline_policy_"+ str(episode) +".pth", "models/network_bn_offline_value_"+ str(episode) +".pth")
             print("Model saved successfully.")
     return total_rewards
 
@@ -712,18 +712,18 @@ if __name__ == '__main__':
         os.remove('throughputs_residual_cl_v1.csv')
 
     oneGB = 1024
-    simulator = NetworkSystemSimulator(sender_buffer_capacity=6.4 * oneGB,
-                                            receiver_buffer_capacity=6.8 * oneGB,
-                                            read_throughput_per_thread=201,
-                                            network_throughput_per_thread=152,
-                                            write_throughput_per_thread=71,
-                                            read_bandwidth=3816.82,
-                                            write_bandwidth=1753.22,
-                                            network_bandwidth=1206.1,
+    simulator = NetworkSystemSimulator(sender_buffer_capacity=6.5 * oneGB,
+                                            receiver_buffer_capacity=2.1 * oneGB,
+                                            read_throughput_per_thread=205,
+                                            network_throughput_per_thread=75,
+                                            write_throughput_per_thread=196,
+                                            read_bandwidth=3980,
+                                            write_bandwidth=2650,
+                                            network_bandwidth=1095,
                                             track_states=True)
     env = NetworkOptimizationEnv(simulator=simulator)
     agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
-    rewards = train_ppo(env, agent, max_episodes=10000)
+    rewards = train_ppo(env, agent, max_episodes=15000)
     
     plot_rewards(rewards, 'PPO Training Rewards', 'training_rewards_training_residual_cl_v1.pdf')
 
