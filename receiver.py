@@ -440,7 +440,10 @@ def report_io_throughput():
                 time_since_begining, curr_thrpt, thrpt))
 
             t2 = time.time()
-            with open('timed_log_write_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
+            fname = 'timed_log_write_ppo_' + configurations['model_version'] +'.csv'
+            if configurations['competing_transfer'] > 0:
+                fname = fname = 'timed_log_write_ppo_' + configurations['model_version'] + '_' + str(configurations['competing_transfer']) + '.csv'
+            with open(fname, 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(io_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 
