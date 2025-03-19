@@ -853,7 +853,7 @@ def report_network_throughput(start_time):
             t2 = time.time()
             fname = 'timed_log_network_ppo_' + configurations['model_version'] +'.csv'
             if configurations['competing_transfer'] > 0:
-                fname = fname = 'timed_log_network_ppo_' + configurations['model_version'] + '_' + str(configurations['competing_transfer']) + '.csv'
+                fname = 'timed_log_network_ppo_' + configurations['model_version'] + '_' + str(configurations['competing_transfer']) + '.csv'
             with open(fname, 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(transfer_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
@@ -917,6 +917,16 @@ if __name__ == '__main__':
         os.remove('timed_log_network_ppo_' + configurations['model_version'] +'.csv')
     if os.path.exists('timed_log_read_ppo_' + configurations['model_version'] +'.csv'):
         os.remove('timed_log_read_ppo_' + configurations['model_version'] +'.csv')
+    if os.path.exists('shared_memory_log_sender_ppo_' + configurations['model_version'] +'.csv'):
+        os.remove('shared_memory_log_sender_ppo_' + configurations['model_version'] +'.csv')
+    
+    fname = 'timed_log_write_ppo_' + configurations['model_version'] +'.csv'
+    if configurations['competing_transfer'] > 0:
+        fname = 'timed_log_write_ppo_' + configurations['model_version'] + '_' + str(configurations['competing_transfer']) + '.csv'
+    with open(fname, 'a') as f:
+        f.write(f" \n")
+    with open('shared_memory_log_receiver_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
+        f.write(f" \n")
 
     net_cc = configurations["max_cc"]["network"]
     net_cc = net_cc if net_cc>0 else mp.cpu_count()

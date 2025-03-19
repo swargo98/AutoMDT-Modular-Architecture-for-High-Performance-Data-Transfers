@@ -333,6 +333,7 @@ from tqdm import tqdm
 def train_ppo(env, agent, max_episodes=1000, is_inference=False, is_random=False):
     memory = Memory()
     total_rewards = []
+    best_avg_reward = 0
     for episode in tqdm(range(1, max_episodes + 1), desc="Episodes"):
         state = env.reset(is_inference)
         episode_reward = 0
@@ -353,10 +354,7 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False, is_random=False
             memory.rewards.append(reward)
 
             state = next_state
-            if t==0:
-                episode_reward += reward
-            if done:
-                break
+            episode_reward += reward
 
         if not done:
             agent.update(memory)
@@ -370,11 +368,14 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False, is_random=False
             break
         total_rewards.append(episode_reward)
         if episode % 10 == 0:
-            avg_reward = np.mean(total_rewards[-10:])
+            avg_reward = np.mean(total_rewards[-10:])/env.max_steps
             print(f"Episode {episode}\tAverage Reward: {avg_reward:.2f}")
-        if episode % 10 == 0:
-            save_model(agent, "models/read_bn_finetune_policy_"+ str(episode) +".pth", "models/read_bn_finetune_value_"+ str(episode) +".pth")
-            print("Model saved successfully.")
+            if not is_inference:
+                save_model(agent, "models/"+ configurations['model_version'] +"_finetune_policy_"+ str(episode) +".pth", "models/"+ configurations['model_version'] +"_finetune_value_"+ str(episode) +".pth")
+                print("Model saved successfully.")
+                if avg_reward > best_avg_reward:
+                    best_avg_reward = avg_reward
+                    save_model(agent, "best_models/"+ configurations['model_version'] +"_finetune_policy.pth", "best_models/"+ configurations['model_version'] +"_finetune_value.pth")
     return total_rewards
 
 

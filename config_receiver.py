@@ -16,7 +16,7 @@ configurations = {
     "loglevel": "info",
     "io_limit": 150, # I/O limit (Mbps) per thread
     'competing_transfer': 0,
-    # "method": "ppo",
-    "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    "method": "ppo",
+    # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
     "model_version": 'residual',
 }

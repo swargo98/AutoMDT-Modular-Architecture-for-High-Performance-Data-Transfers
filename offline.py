@@ -8,6 +8,7 @@ from gym import spaces
 import matplotlib.pyplot as plt
 import random
 from queue import PriorityQueue
+from config_sender import configurations
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -203,9 +204,9 @@ class NetworkSystemSimulator:
         # print(f"Read thread: {read_thread}, Network thread: {network_thread}, Write thread: {write_thread}, Utility: {utility}")
 
         if self.track_states:
-            with open('threads_read_bn.csv', 'a') as f:
+            with open('threads_'+ configurations['model_version'] +'.csv', 'a') as f:
                 f.write(f"{read_thread}, {network_thread}, {write_thread}\n")
-            with open('throughputs_read_bn.csv', 'a') as f:
+            with open('throughputs_'+ configurations['model_version'] +'.csv', 'a') as f:
                 f.write(f"{self.read_throughput}, {self.network_throughput}, {self.write_throughput}\n")
 
         final_state = SimulatorState(self.sender_buffer_capacity-self.sender_buffer_in_use,
@@ -538,6 +539,7 @@ from tqdm import tqdm
 def train_ppo(env, agent, max_episodes=1000):
     memory = Memory()
     total_rewards = []
+    best_avg_reward = 0
     for episode in tqdm(range(1, max_episodes + 1), desc="Episodes"):
         state = env.reset()
         episode_reward = 0
@@ -551,10 +553,7 @@ def train_ppo(env, agent, max_episodes=1000):
             memory.rewards.append(reward)
 
             state = next_state
-            if t==0:
-                episode_reward += reward
-            if done:
-                break
+            episode_reward += reward
 
         agent.update(memory)
 
@@ -565,11 +564,15 @@ def train_ppo(env, agent, max_episodes=1000):
         memory.clear()
         total_rewards.append(episode_reward)
         if episode % 100 == 0:
-            avg_reward = np.mean(total_rewards[-100:])
+            avg_reward = np.mean(total_rewards[-100:])/env.max_steps
             print(f"Episode {episode}\tAverage Reward: {avg_reward:.2f}")
-        if episode % 100 == 0:
-            save_model(agent, "models/network_bn_offline_policy_"+ str(episode) +".pth", "models/network_bn_offline_value_"+ str(episode) +".pth")
+            save_model(agent, "models/"+ configurations['model_version'] +"_offline_policy_"+ str(episode) +".pth", "models/"+ configurations['model_version'] +"_offline_value_"+ str(episode) +".pth")
             print("Model saved successfully.")
+            if avg_reward > best_avg_reward:
+                best_avg_reward = avg_reward
+                save_model(agent, "best_models/"+ configurations['model_version'] +"_offline_policy.pth", "best_models/"+ configurations['model_version'] +"_offline_value.pth")
+
+
     return total_rewards
 
 def plot_rewards(rewards, title, pdf_file):
@@ -706,10 +709,10 @@ def plot_throughputs_csv(throughputs_file='throughputs_dicrete_w_history_minibat
 
 import os
 if __name__ == '__main__':
-    if os.path.exists('threads_residual_cl_v1.csv'):
-        os.remove('threads_residual_cl_v1.csv')
-    if os.path.exists('throughputs_residual_cl_v1.csv'):
-        os.remove('throughputs_residual_cl_v1.csv')
+    if os.path.exists('threads'+ configurations['model_version'] +'.csv'):
+        os.remove('threads'+ configurations['model_version'] +'.csv')
+    if os.path.exists('throughputs'+ configurations['model_version'] +'.csv'):
+        os.remove('throughputs'+ configurations['model_version'] +'.csv')
 
     oneGB = 1024
     simulator = NetworkSystemSimulator(sender_buffer_capacity=6.5 * oneGB,
@@ -725,40 +728,4 @@ if __name__ == '__main__':
     agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
     rewards = train_ppo(env, agent, max_episodes=15000)
     
-    plot_rewards(rewards, 'PPO Training Rewards', 'training_rewards_training_residual_cl_v1.pdf')
-
-    inference_count = 5
-    for i in range(inference_count):
-        if os.path.exists('threads_residual_cl_v1.csv'):
-            os.remove('threads_residual_cl_v1.csv')
-        if os.path.exists('throughputs_residual_cl_v1.csv'):
-            os.remove('throughputs_residual_cl_v1.csv')
-
-        optimals, simulator = simulator_generator.generate_simulator(episode=500000)
-
-        # save simulator parameters to a file
-        with open('simulators/simulator_parameters_'+ str(i) +'.csv', 'w') as f:
-            f.write(f"Sender Buffer Capacity, {simulator.sender_buffer_capacity}\n")
-            f.write(f"Receiver Buffer Capacity, {simulator.receiver_buffer_capacity}\n")
-            f.write(f"Read Throughput per Thread, {simulator.read_throughput_per_thread}\n")
-            f.write(f"Network Throughput per Thread, {simulator.network_throughput_per_thread}\n")
-            f.write(f"Write Throughput per Thread, {simulator.write_throughput_per_thread}\n")
-            f.write(f"Read Bandwidth, {simulator.read_bandwidth}\n")
-            f.write(f"Write Bandwidth, {simulator.write_bandwidth}\n")
-            f.write(f"Network Bandwidth, {simulator.network_bandwidth}\n")
-
-        env = NetworkOptimizationEnv(simulator=simulator)
-        agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
-
-        policy_model = 'training_residual_cl_v1_policy_400000.pth'
-        value_model = 'training_residual_cl_v1_value_400000.pth'
-
-        print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
-        load_model(agent, "models/"+policy_model, "models/"+value_model)
-        print("Model loaded successfully.")
-
-        rewards = train_ppo(env, agent, max_episodes=100)
-
-        plot_rewards(rewards, 'PPO Inference Rewards', 'rewards/inference_rewards_training_residual_cl_v1_'+ str(i) +'.pdf')
-        plot_threads_csv('threads_residual_cl_v1.csv', optimals, 'threads/inference_threads_plot_training_residual_cl_v1_'+ str(i) +'.png')
-        plot_throughputs_csv('throughputs_residual_cl_v1.csv', optimals, 'throughputs/inference_throughputs_plot_training_residual_cl_v1_'+ str(i) +'.png') 
+    plot_rewards(rewards, 'PPO Training Rewards', 'training_rewards_'+ configurations['model_version'] +'.pdf')

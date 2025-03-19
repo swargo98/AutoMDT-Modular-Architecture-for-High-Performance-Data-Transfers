@@ -477,6 +477,8 @@ if __name__ == '__main__':
 
     if os.path.exists('timed_log_write_ppo_' + configurations['model_version'] +'.csv'):
         os.remove('timed_log_write_ppo_' + configurations['model_version'] +'.csv')
+    if os.path.exists('shared_memory_log_receiver_ppo_' + configurations['model_version'] +'.csv'):
+        os.remove('shared_memory_log_receiver_ppo_' + configurations['model_version'] +'.csv')
 
     log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
     log_file = f'logs/receiver.{datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")}.log'

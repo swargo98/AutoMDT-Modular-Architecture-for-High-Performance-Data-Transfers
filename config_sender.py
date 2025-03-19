@@ -20,8 +20,8 @@ configurations = {
     "K": 1.05, # cost of increasing concurrency
     "loglevel": "info",
     "probing_sec": 3, # probing interval in seconds
-    "network_limit": 60, # Network limit (Mbps) per thread
-    "io_limit": 150, # I/O limit (Mbps) per thread
+    "network_limit": 150, # Network limit (Mbps) per thread
+    "io_limit": 60, # I/O limit (Mbps) per thread
     "memory_use": {
         "maximum": 5,
         "threshold": 1,
@@ -36,16 +36,16 @@ configurations = {
         'write': 20
     },
     'competing_transfer': 0,
-    # "mp_opt": True,
-    # "method": "ppo",
-    "mp_opt": False,
-    "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    "mp_opt": True,
+    "method": "ppo",
+    # "mp_opt": False,
+    # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
     "multiplier": 1, # multiplier for each files, only for testing purpose
-    "model_version": 'marlin_network_bn',
-    "mode": 'inference',
+    "model_version": 'automdt_read_bn',
+    "mode": 'random',
     'inference_value_model': 'read_bn_finetune_value_150.pth',
     'inference_policy_model': 'read_bn_finetune_policy_150.pth',
     'finetune_value_model': 'network_bn_offline_value_12300.pth',
     'finetune_policy_model': 'network_bn_offline_policy_12300.pth',
-    'max_episodes': 151,
+    'max_episodes': 21,
 }
