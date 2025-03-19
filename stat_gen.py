@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Define types for comparison
-types = ["ppo_residual_network_bn"]  # Add more types as needed
+types = ["ppo_automdt_read_bn"]  # Add more types as needed
 
 # Generate file paths dynamically
 file_paths = {}
@@ -31,7 +31,9 @@ for key, df in data.items():
     
     # Compute the median of these 5 values
     median_top5[key] = top5.median()
-    top[key] = df["throughputs"].nlargest(1)
+
+    top5 = df["throughputs"].nlargest(11)
+    top[key] = top5.median()
 
 # Print the median of the top 5 values for each key
 print(" Highest Throughput/Thread")

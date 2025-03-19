@@ -40,7 +40,7 @@ configurations = {
     "method": "ppo",
     # "mp_opt": False,
     # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "multiplier": 1, # multiplier for each files, only for testing purpose
+    "multiplier": 50, # multiplier for each files, only for testing purpose
     "model_version": 'automdt_read_bn',
     "mode": 'random',
     'inference_value_model': 'read_bn_finetune_value_150.pth',
