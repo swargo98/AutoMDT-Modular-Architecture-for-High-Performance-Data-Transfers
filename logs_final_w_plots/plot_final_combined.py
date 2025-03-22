@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 # -------------------------------------------------
 # 1. Define model types and bottlenecks
 # -------------------------------------------------
-types = ["ppo_residual", "ppo_marlin"]  # Two model types
+types = ["ppo_automdt", "ppo_marlin"]  # Two model types
 bottlenecks = ["read_bn", "network_bn", "write_bn"]
 
 # Subplot titles for bottlenecks
@@ -16,7 +16,7 @@ bottleneck_labels = {
 
 # Model labels for legend and y-axis labeling
 type_labels = {
-    "ppo_residual": "AutoMDT",
+    "ppo_automdt": "AutoMDT",
     "ppo_marlin":    "Marlin",
 }
 
@@ -36,9 +36,9 @@ link_speeds = {
 file_paths = {}
 for t in types:
     for b in bottlenecks:
-        file_paths[f"read_{t}_{b}"]    = f"logs_final_2/timed_log_read_{t}_{b}.csv"
-        file_paths[f"network_{t}_{b}"] = f"logs_final_2/timed_log_network_{t}_{b}.csv"
-        file_paths[f"write_{t}_{b}"]   = f"logs_final_2/timed_log_write_{t}_{b}.csv"
+        file_paths[f"read_{t}_{b}"]    = f"fabric_logs/timed_log_read_{t}_{b}.csv"
+        file_paths[f"network_{t}_{b}"] = f"fabric_logs/timed_log_network_{t}_{b}.csv"
+        file_paths[f"write_{t}_{b}"]   = f"fabric_logs/timed_log_write_{t}_{b}.csv"
 
 # -------------------------------------------------
 # 4. Load CSV data into a dictionary
@@ -97,8 +97,8 @@ for row_idx, t in enumerate(types):
 
         # ax.set_xlim(0, 270)
         # ax.set_xticks(range(0, 270, 50))
-        ax.set_ylim(0, 21)
-        ax.set_yticks(range(0, 21, 5))
+        ax.set_ylim(0, 31)
+        ax.set_yticks(range(0, 31, 5))
 
         ax.grid(True)
         ax.legend(fontsize=8)
@@ -122,8 +122,8 @@ for col_idx, b in enumerate(bottlenecks):
     
     # ax.set_xlim(0, 270)
     # ax.set_xticks(range(0, 270, 50))    
-    ax.set_ylim(0, 1050)
-    ax.set_yticks(range(0, 1050, 200))
+    ax.set_ylim(0, 2450)
+    ax.set_yticks(range(0, 2450, 200))
     
     ax.grid(True)
     ax.legend(fontsize=8)

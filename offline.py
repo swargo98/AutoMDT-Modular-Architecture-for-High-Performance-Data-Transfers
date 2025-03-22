@@ -292,7 +292,7 @@ class NetworkOptimizationEnv(gym.Env):
                                                 track_states=True)
         if simulator is not None:
             self.simulator = simulator
-        self.thread_limits = [1, 20]  # Threads can be between 1 and 10
+        self.thread_limits = [1, 30]  # Threads can be between 1 and 10
 
         # Continuous action space: adjustments between -5.0 and +5.0
         self.action_space = spaces.Box(low=np.array([self.thread_limits[0]] * 3),
@@ -356,9 +356,9 @@ class NetworkOptimizationEnv(gym.Env):
         if simulator is not None:
             self.simulator = simulator
             
-        self.simulator.read_thread = np.random.randint(3, 19)
-        self.simulator.network_thread = np.random.randint(3, 19)
-        self.simulator.write_thread = np.random.randint(3, 19)
+        self.simulator.read_thread = np.random.randint(3, self.thread_limits[1]-1)
+        self.simulator.network_thread = np.random.randint(3, self.thread_limits[1]-1)
+        self.simulator.write_thread = np.random.randint(3, self.thread_limits[1]-1)
         sender_buffer_remaining_capacity = self.simulator.sender_buffer_capacity - self.simulator.sender_buffer_in_use
         receiver_buffer_remaining_capacity = self.simulator.receiver_buffer_capacity - self.simulator.receiver_buffer_in_use
 
@@ -715,17 +715,17 @@ if __name__ == '__main__':
         os.remove('throughputs'+ configurations['model_version'] +'.csv')
 
     oneGB = 1024
-    simulator = NetworkSystemSimulator(sender_buffer_capacity=6.5 * oneGB,
-                                            receiver_buffer_capacity=2.1 * oneGB,
-                                            read_throughput_per_thread=205,
-                                            network_throughput_per_thread=75,
-                                            write_throughput_per_thread=196,
-                                            read_bandwidth=3980,
-                                            write_bandwidth=2650,
-                                            network_bandwidth=1095,
+    simulator = NetworkSystemSimulator(sender_buffer_capacity=7 * oneGB,
+                                            receiver_buffer_capacity=3.5 * oneGB,
+                                            read_throughput_per_thread=200,
+                                            network_throughput_per_thread=73,
+                                            write_throughput_per_thread=200,
+                                            read_bandwidth=4740,
+                                            network_bandwidth=1762,
+                                            write_bandwidth=2961,
                                             track_states=True)
     env = NetworkOptimizationEnv(simulator=simulator)
     agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
-    rewards = train_ppo(env, agent, max_episodes=15000)
+    rewards = train_ppo(env, agent, max_episodes=30000)
     
     plot_rewards(rewards, 'PPO Training Rewards', 'training_rewards_'+ configurations['model_version'] +'.pdf')

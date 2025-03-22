@@ -2,7 +2,7 @@
 
 configurations = {
     "receiver": {
-        "host": "10.10.1.2",
+        "host": "192.168.1.1",
         "port": 50028
     },
     "rpc_port":"5002",
@@ -20,8 +20,8 @@ configurations = {
     "K": 1.05, # cost of increasing concurrency
     "loglevel": "info",
     "probing_sec": 3, # probing interval in seconds
-    "network_limit": 150, # Network limit (Mbps) per thread
-    "io_limit": 60, # I/O limit (Mbps) per thread
+    "network_limit": 60, # Network limit (Mbps) per thread
+    "io_limit": 150, # I/O limit (Mbps) per thread
     "memory_use": {
         "maximum": 5,
         "threshold": 1,
@@ -31,21 +31,21 @@ configurations = {
         "thread": 3
     },
     "max_cc": {
-        "network": 20,
-        "io": 20,
-        'write': 20
+        "network": 30,
+        "io": 30,
+        'write': 30
     },
     'competing_transfer': 0,
     "mp_opt": True,
     "method": "ppo",
     # "mp_opt": False,
     # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "multiplier": 50, # multiplier for each files, only for testing purpose
-    "model_version": 'automdt_read_bn',
-    "mode": 'random',
-    'inference_value_model': 'read_bn_finetune_value_150.pth',
-    'inference_policy_model': 'read_bn_finetune_policy_150.pth',
-    'finetune_value_model': 'network_bn_offline_value_12300.pth',
-    'finetune_policy_model': 'network_bn_offline_policy_12300.pth',
-    'max_episodes': 21,
+    "multiplier": 1, # multiplier for each files, only for testing purpose
+    'max_episodes': 100,
+    "model_version": 'automdt_network_bn',
+    "mode": 'inference',
+    'inference_value_model': 'best_models/automdt_network_bn_finetune_value.pth',
+    'inference_policy_model': 'best_models/automdt_network_bn_finetune_policy.pth',
+    'finetune_value_model': 'best_models/automdt_network_bn_offline_value.pth',
+    'finetune_policy_model': 'best_models/automdt_network_bn_offline_policy.pth',
 }

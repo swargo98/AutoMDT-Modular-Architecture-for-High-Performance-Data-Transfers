@@ -1,14 +1,14 @@
 #!/bin/bash
-python get_pip.py
+python3 get_pip.py
 
 # List contents of /users/swargo98/.local/bin/
-ls /users/swargo98/.local/bin/
+ls /home/ubuntu/.local/bin/
 
 # Add directory to PATH
-export PATH=$PATH:/users/swargo98/.local/bin
+export PATH=$PATH:/home/ubuntu/.local/bin
 
 # Persist the PATH change in ~/.bashrc
-echo 'export PATH=$PATH:/users/swargo98/.local/bin' >> ~/.bashrc
+echo 'export PATH=$PATH:/home/ubuntu/.local/bin' >> ~/.bashrc
 
 # Reload ~/.bashrc
 source ~/.bashrc

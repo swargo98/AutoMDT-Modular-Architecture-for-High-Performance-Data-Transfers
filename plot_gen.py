@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Define types for comparison
-types = ["ppo_residual", "ppo_marlin", "ppo_mgd"]  # Add more types as needed
+types = ["ppo_marlin", "ppo_automdt"]  # Add more types as needed
 extension = 'network_bn'
 # Generate file paths dynamically
 file_paths = {}

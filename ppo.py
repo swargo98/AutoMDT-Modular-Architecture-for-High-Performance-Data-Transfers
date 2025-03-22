@@ -71,7 +71,7 @@ class SimulatorState:
 class NetworkOptimizationEnv(gym.Env):
     def __init__(self, black_box_function, state, history_length=5):
         super(NetworkOptimizationEnv, self).__init__()
-        self.thread_limits = [1, 20]  # Threads can be between 1 and 10
+        self.thread_limits = [1, 30]  # Threads can be between 1 and 10
 
         # Continuous action space: adjustments between -5.0 and +5.0
         self.action_space = spaces.Box(low=np.array([self.thread_limits[0]] * 3),
@@ -110,9 +110,9 @@ class NetworkOptimizationEnv(gym.Env):
         print(new_thread_counts)
         
         if is_random:
-            read_thread = np.random.randint(3, 19)
-            network_thread = np.random.randint(3, 19)
-            write_thread = np.random.randint(3, 19)
+            read_thread = np.random.randint(5, self.thread_limits[1]-1)
+            network_thread = np.random.randint(5, self.thread_limits[1]-1)
+            write_thread = np.random.randint(5, self.thread_limits[1]-1)
             new_thread_counts = [read_thread, network_thread, write_thread]
         
         # Compute utility and update state
@@ -147,9 +147,9 @@ class NetworkOptimizationEnv(gym.Env):
     def reset(self, is_inference = False):
         print(is_inference)
         if not is_inference:
-            read_thread = np.random.randint(3, 19)
-            network_thread = np.random.randint(3, 19)
-            write_thread = np.random.randint(3, 19)
+            read_thread = np.random.randint(3, self.thread_limits[1]-1)
+            network_thread = np.random.randint(3, self.thread_limits[1]-1)
+            write_thread = np.random.randint(3, self.thread_limits[1]-1)
             sender_buffer_remaining_capacity = self.state.sender_buffer_remaining_capacity
             receiver_buffer_remaining_capacity = self.state.receiver_buffer_remaining_capacity
             print(f"READ: {read_thread}; NETWORK: {network_thread}; WRITE: {write_thread}")

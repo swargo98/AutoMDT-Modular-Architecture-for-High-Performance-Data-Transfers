@@ -483,8 +483,8 @@ class PPOOptimizer:
         self.env = NetworkOptimizationEnv(black_box_function=self.get_reward, state=state, history_length=self.history_length)
         self.agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
 
-        policy_model = 'residual_cl_v1_policy_9100.pth'
-        value_model = 'residual_cl_v1_value_9100.pth'
+        policy_model = "models/"+ 'residual_cl_v1_policy_9100.pth'
+        value_model = "models/"+ 'residual_cl_v1_value_9100.pth'
         is_inference = False
         is_random = False
 
@@ -501,7 +501,7 @@ class PPOOptimizer:
         optimals = [7, 7, 7, 7000]
 
         print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
-        load_model(self.agent, "models/"+policy_model, "models/"+value_model)
+        load_model(self.agent, policy_model, value_model)
         print("Model loaded successfully.")
 
         rewards = train_ppo(self.env, self.agent, max_episodes=configurations['max_episodes'], is_inference = is_inference, is_random = is_random)
