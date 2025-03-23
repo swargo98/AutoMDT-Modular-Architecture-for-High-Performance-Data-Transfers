@@ -1,0 +1,1 @@
+dd if=src2/random_file_1 of=/dev/null bs=4M status=progress
