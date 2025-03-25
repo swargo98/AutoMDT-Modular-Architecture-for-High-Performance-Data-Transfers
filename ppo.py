@@ -71,7 +71,7 @@ class SimulatorState:
 class NetworkOptimizationEnv(gym.Env):
     def __init__(self, black_box_function, state, history_length=5):
         super(NetworkOptimizationEnv, self).__init__()
-        self.thread_limits = [1, 30]  # Threads can be between 1 and 10
+        self.thread_limits = [1, configurations["max_cc"]["network"]]  # Threads can be between 1 and 10
 
         # Continuous action space: adjustments between -5.0 and +5.0
         self.action_space = spaces.Box(low=np.array([self.thread_limits[0]] * 3),
@@ -339,8 +339,16 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False, is_random=False
         episode_reward = 0
         exit_flag = False
         for t in range(env.max_steps):
+            import time
+            t1 = time.time()
             action, action_logprob = agent.select_action(state, is_inference)
+            t2 = time.time()
             next_state, reward, done, _ = env.step(action, is_random)
+            t3 = time.time()
+
+            fname = 'time_log_inference_ppo_' + configurations['model_version'] +'.csv'
+            with open(fname, 'a') as f:
+                f.write(f"{np.round(t2-t1, 1)}, {np.round(t3-t2, 1)}, {np.round(t3-t1, 1)}\n")
 
             print(f"Reward: {reward}")
 

@@ -24,9 +24,9 @@ type_labels = {
 # 2. Define link speeds (throughput per thread) for each bottleneck
 # -------------------------------------------------
 link_speeds = {
-    "network_bn": {"read": 205, "network": 75,  "write": 195},
-    "read_bn":    {"read": 80,  "network": 160, "write": 200},
-    "write_bn":   {"read": 200, "network": 150, "write": 70},
+    "network_bn": {"read": 200, "network": 75,  "write": 200},
+    "read_bn":    {"read": 75,  "network": 150, "write": 190},
+    "write_bn":   {"read": 200, "network": 145, "write": 75},
 }
 
 # -------------------------------------------------

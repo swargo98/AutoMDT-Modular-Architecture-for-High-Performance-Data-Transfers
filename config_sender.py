@@ -17,13 +17,13 @@ configurations = {
     "centralized": False, # True for centralized optimization
     "file_transfer": True,
     "B": 10, # severity of the packet loss punishment
-    "K": 1.05, # cost of increasing concurrency
+    "K": 1.02, # cost of increasing concurrency
     "loglevel": "info",
     "probing_sec": 3, # probing interval in seconds
-    "network_limit": 60, # Network limit (Mbps) per thread
-    "io_limit": 150, # I/O limit (Mbps) per thread
+    "network_limit": -1, # Network limit (Mbps) per thread
+    "io_limit": -1, # I/O limit (Mbps) per thread
     "memory_use": {
-        "maximum": 5,
+        "maximum": 10,
         "threshold": 1,
     },
     "fixed_probing": {
@@ -31,21 +31,21 @@ configurations = {
         "thread": 3
     },
     "max_cc": {
-        "network": 30,
-        "io": 30,
-        'write': 30
+        "network": 100,
+        "io": 100,
+        'write': 100
     },
     'competing_transfer': 0,
-    "mp_opt": True,
-    "method": "ppo",
-    # "mp_opt": False,
-    # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "multiplier": 1, # multiplier for each files, only for testing purpose
-    'max_episodes': 100,
-    "model_version": 'automdt_network_bn',
+    # "mp_opt": True,
+    # "method": "ppo",
+    "mp_opt": False,
+    "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    "multiplier": 2, # multiplier for each files, only for testing purpose
+    'max_episodes': 120,
+    "model_version": 'marlin_4gb',
     "mode": 'inference',
-    'inference_value_model': 'best_models/automdt_network_bn_finetune_value.pth',
-    'inference_policy_model': 'best_models/automdt_network_bn_finetune_policy.pth',
+    'inference_value_model': 'best_models/automdt_4gb_finetune_value.pth',
+    'inference_policy_model': 'best_models/automdt_4gb_finetune_policy.pth',
     'finetune_value_model': 'best_models/automdt_network_bn_offline_value.pth',
     'finetune_policy_model': 'best_models/automdt_network_bn_offline_policy.pth',
 }
