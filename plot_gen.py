@@ -44,7 +44,8 @@ def generate_plot(metric, x_axis, y_axis, ylabel, filename):
 
 # Generate and save all plots
 for metric in ["throughputs", "threads"]:
-    for x_axis in ["current_time", "time_since_beginning"]:
+    # for x_axis in ["current_time", "time_since_beginning"]:
+    for x_axis in ["time_since_beginning"]:
         ylabel = metric.capitalize()
         filename = f"{extension}_{metric}_vs_{x_axis}.png"
         generate_plot(metric, x_axis, metric, ylabel, filename)
