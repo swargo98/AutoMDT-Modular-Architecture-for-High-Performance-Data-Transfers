@@ -348,7 +348,7 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False, is_random=False
 
             fname = 'time_log_inference_ppo_' + configurations['model_version'] +'.csv'
             with open(fname, 'a') as f:
-                f.write(f"{np.round(t2-t1, 1)}, {np.round(t3-t2, 1)}, {np.round(t3-t1, 1)}\n")
+                f.write(f"{np.round(t2-t1, 10)}, {np.round(t3-t2, 10)}, {np.round(t3-t1, 10)}\n")
 
             print(f"Reward: {reward}")
 
