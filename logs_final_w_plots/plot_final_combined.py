@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 # -------------------------------------------------
 # 1. Define model types and bottlenecks
 # -------------------------------------------------
-types = ["ppo_automdt", "ppo_marlin"]  # Two model types
+types = ["ppo_automdt", "ppo_automdt_wo_ft"]  # Two model types
 bottlenecks = ["read_bn", "network_bn", "write_bn"]
 
 # Subplot titles for bottlenecks
 bottleneck_labels = {
+    "no_bn":    "Regular Transfer",
     "read_bn":    "Read I/O Bottleneck",
     "network_bn": "Network Bottleneck",
     "write_bn":   "Write I/O Bottleneck"
@@ -16,17 +17,18 @@ bottleneck_labels = {
 
 # Model labels for legend and y-axis labeling
 type_labels = {
-    "ppo_automdt": "AutoMDT",
-    "ppo_marlin":    "Marlin",
+    "ppo_automdt": "AutoMDT FT",
+    "ppo_automdt_wo_ft": "AutoMDT Offline",
 }
 
 # -------------------------------------------------
 # 2. Define link speeds (throughput per thread) for each bottleneck
 # -------------------------------------------------
 link_speeds = {
-    "network_bn": {"read": 200, "network": 75,  "write": 200},
-    "read_bn":    {"read": 75,  "network": 150, "write": 190},
-    "write_bn":   {"read": 200, "network": 145, "write": 75},
+    "no_bn": {"read": 775, "network": 215,  "write": 335},
+    "network_bn": {"read": 265, "network": 90,  "write": 220},
+    "read_bn":    {"read": 70,  "network": 160, "write": 170},
+    "write_bn":   {"read": 265, "network": 160, "write": 70},
 }
 
 # -------------------------------------------------
@@ -36,9 +38,9 @@ link_speeds = {
 file_paths = {}
 for t in types:
     for b in bottlenecks:
-        file_paths[f"read_{t}_{b}"]    = f"fabric_logs/timed_log_read_{t}_{b}.csv"
-        file_paths[f"network_{t}_{b}"] = f"fabric_logs/timed_log_network_{t}_{b}.csv"
-        file_paths[f"write_{t}_{b}"]   = f"fabric_logs/timed_log_write_{t}_{b}.csv"
+        file_paths[f"read_{t}_{b}"]    = f"temp/timed_log_read_{t}_{b}.csv"
+        file_paths[f"network_{t}_{b}"] = f"temp/timed_log_network_{t}_{b}.csv"
+        file_paths[f"write_{t}_{b}"]   = f"temp/timed_log_write_{t}_{b}.csv"
 
 # -------------------------------------------------
 # 4. Load CSV data into a dictionary
@@ -74,6 +76,7 @@ line_styles = {
 # -------------------------------------------------
 # Rows 0 and 1 correspond to each model type (in order of the list 'types')
 for row_idx, t in enumerate(types):
+    avg_thread_sum = 0
     for col_idx, b in enumerate(bottlenecks):
         ax = axes[row_idx, col_idx]
         # For each subplot, plot three lines: read, network, write
@@ -82,6 +85,11 @@ for row_idx, t in enumerate(types):
             if dict_key in data:
                 # Compute 5-point rolling average for the "threads" column
                 conv_roll = data[dict_key]["threads"].rolling(window=5).mean()
+                
+                avg_threads = data[dict_key]["threads"].mean()
+                avg_thread_sum += avg_threads
+                print(f"{dict_key}: Average threads = {avg_threads:.2f}")
+                
                 speeds_for_bottleneck = link_speeds[b]
                 label_str = f"{sub_key.capitalize()} = {speeds_for_bottleneck[sub_key]} Mbps"
                 ax.plot(conv_roll.index, conv_roll, label=label_str, **line_styles.get(sub_key, {}))
@@ -97,12 +105,12 @@ for row_idx, t in enumerate(types):
 
         # ax.set_xlim(0, 270)
         # ax.set_xticks(range(0, 270, 50))
-        ax.set_ylim(0, 31)
-        ax.set_yticks(range(0, 31, 5))
+        ax.set_ylim(0, 21)
+        ax.set_yticks(range(0, 21, 5))
 
         ax.grid(True)
         ax.legend(fontsize=8)
-
+    print(avg_thread_sum/9)
 # -------------------------------------------------
 # 7. Fill in the bottom row (row index 2): network throughput plots
 #    Here we plot the "throughputs" column (from network CSV) for each model type.
@@ -122,8 +130,8 @@ for col_idx, b in enumerate(bottlenecks):
     
     # ax.set_xlim(0, 270)
     # ax.set_xticks(range(0, 270, 50))    
-    ax.set_ylim(0, 2450)
-    ax.set_yticks(range(0, 2450, 200))
+    ax.set_ylim(0, 1250)
+    ax.set_yticks(range(0, 1250, 200))
     
     ax.grid(True)
     ax.legend(fontsize=8)

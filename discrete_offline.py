@@ -326,7 +326,19 @@ class NetworkOptimizationEnv(gym.Env):
         self.trajectory = []
 
     def step(self, action):
+        deltas_map = [-3, -1, 0, +1, +3]
+        
+        read_index, net_index, write_index = action
+        # Convert those indexes to actual deltas:
+        read_delta = deltas_map[read_index]
+        net_delta = deltas_map[net_index]
+        write_delta = deltas_map[write_index]
+        # 2) Compute new thread counts
         new_thread_counts = np.clip(np.round(action), self.thread_limits[0], self.thread_limits[1]).astype(np.int32)
+        new_read = min(max(self.simulator.read_thread + read_delta, self.thread_limits[0]), self.thread_limits[1])
+        new_network = min(max(self.simulator.network_thread + net_delta, self.thread_limits[0]), self.thread_limits[1])
+        new_write = min(max(self.simulator.write_thread + write_delta, self.thread_limits[0]), self.thread_limits[1])
+        new_thread_counts = [new_read, new_network, new_write]
 
         # Compute utility and update state
         utility, self.state = self.simulator.get_utility_value(new_thread_counts)
@@ -400,7 +412,7 @@ class ResidualBlock(nn.Module):
         return out
     
 class PolicyNetworkContinuous(nn.Module):
-    def __init__(self, state_dim, action_dim):
+    def __init__(self, state_dim, action_dim, num_actions=5):
         super(PolicyNetworkContinuous, self).__init__()
         self.input_layer = nn.Linear(state_dim, 256)
         
@@ -414,8 +426,7 @@ class PolicyNetworkContinuous(nn.Module):
             ) for _ in range(3)
         ])
         
-        self.mean_layer = nn.Linear(256, action_dim)
-        self.log_std = nn.Parameter(torch.zeros(action_dim))
+        self.action_head = nn.Linear(256, 3 * num_actions)
         self.to(device)
         
     def forward(self, state):
@@ -427,10 +438,9 @@ class PolicyNetworkContinuous(nn.Module):
             x = block(x)
             x = torch.tanh(x + residual)
         
-        mean = self.mean_layer(x)
-        log_std = torch.clamp(self.log_std, -20, 2)
-        std = torch.exp(log_std)
-        return mean, std
+        x = self.action_head(x)
+        # Reshape to [batch_size, 3, num_actions]
+        return x.view(-1, 3, 5)
 
 class ValueNetwork(nn.Module):
     def __init__(self, state_dim):
@@ -468,18 +478,41 @@ class PPOAgentContinuous:
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.MseLoss = nn.MSELoss()
+        self.action_values = [-3, -1, 0, 1, 3]
 
-    def select_action(self, state):
-        state = torch.FloatTensor(state).to(device)
-        mean, std = self.policy_old(state)
-        dist = Normal(mean, std)
-        action = dist.sample()
-        action_logprob = dist.log_prob(action)
-        return action.detach().cpu().numpy(), action_logprob.detach().cpu().numpy()
+    def select_action(self, state, is_inference=False):
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)   # [1, obs_dim]
+        logits = self.policy_old(state)                            # [1, 3, 5]
+        probs = torch.softmax(logits, dim=-1)
+
+        if is_inference:
+            discrete_actions = torch.argmax(probs, dim=-1)  # [1, 3] each in {0..4}
+        else:
+            dist = torch.distributions.Categorical(probs)
+            discrete_actions = dist.sample()                # [1, 3]
+
+        # Convert discrete_actions -> log_probs
+        log_probs = torch.log_softmax(logits, dim=-1)       # [1, 3, 5]
+        chosen_log_probs = torch.gather(
+            log_probs, dim=-1, index=discrete_actions.unsqueeze(-1)
+        ).squeeze(-1)                                       # [1, 3]
+        chosen_log_probs = chosen_log_probs.sum(dim=1)      # [1]
+        logprob_scalar = chosen_log_probs.item()            # float
+
+        # Convert the discrete_actions => environment thread_changes
+        # shape [1,3], so take row 0 => shape [3]
+        actions_np = discrete_actions[0].cpu().numpy()         # e.g. [2,4,1]
+        thread_changes = np.array(
+            [self.action_values[a] for a in actions_np], 
+            dtype=np.int32
+        )  # e.g. if action_values=[-3,-1,0,1,3], then [0,3,1] => [0, +3, -1]
+
+        return thread_changes, logprob_scalar, discrete_actions[0].cpu().numpy()
+
 
     def update(self, memory):
         states = torch.stack(memory.states).to(device)
-        actions = torch.tensor(np.array(memory.actions), dtype=torch.float32).to(device)
+        actions = torch.tensor(memory.actions, dtype=torch.long).to(device)
         rewards = torch.tensor(memory.rewards, dtype=torch.float32).to(device)
         old_logprobs = torch.tensor(np.array(memory.logprobs), dtype=torch.float32).to(device)
 
@@ -493,14 +526,14 @@ class PPOAgentContinuous:
         returns = (returns - returns.mean()) / (returns.std() + 1e-5)
 
         # Get new action probabilities
-        mean, std = self.policy(states)
-        dist = Normal(mean, std)
-        logprobs = dist.log_prob(actions)
-        entropy = dist.entropy()
+        logits = self.policy(states)
+        new_logprobs_all = torch.log_softmax(logits, dim=-1)
+        new_logprobs_selected = new_logprobs_all.gather(2, actions.unsqueeze(2)).squeeze(2)
+        logprobs = new_logprobs_selected.sum(dim=1)
 
-        logprobs = logprobs.sum(dim=1)
-        old_logprobs = old_logprobs.sum(dim=1)
-        entropy = entropy.sum(dim=1)
+        probs_all = torch.softmax(logits, dim=-1)             # shape [B, 3, 5]
+        entropy_all = -(probs_all * new_logprobs_all).sum(dim=-1) # shape [B, 3]
+        entropy = entropy_all.sum(dim=1)                      # shape [B]
 
         ratios = torch.exp(logprobs - old_logprobs)
         state_values = self.value_function(states).squeeze()
@@ -511,7 +544,7 @@ class PPOAgentContinuous:
         # Surrogate loss
         surr1 = ratios * advantages
         surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
-        loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, returns) - 0.1 * entropy
+        loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, returns) - 0.01 * entropy
 
         # Update policy
         self.optimizer.zero_grad()
@@ -546,12 +579,14 @@ def train_ppo(env, agent, max_episodes=1000, optimal_reward=0):
         state = env.reset()
         episode_reward = 0
         for t in range(env.max_steps):
-            action, action_logprob = agent.select_action(state)
-            next_state, reward, done, _ = env.step(action)
+            thread_changes, logprob_scalar, action_indices = agent.select_action(state)
+        
+            # Step environment with thread_changes
+            next_state, reward, done, _ = env.step(thread_changes)
 
             memory.states.append(torch.FloatTensor(state).to(device))
-            memory.actions.append(action)
-            memory.logprobs.append(action_logprob)
+            memory.actions.append(action_indices)       # This is crucial! action_indices in [0..4]
+            memory.logprobs.append(logprob_scalar)
             memory.rewards.append(reward)
 
             state = next_state
@@ -573,7 +608,7 @@ def train_ppo(env, agent, max_episodes=1000, optimal_reward=0):
             if avg_reward > best_avg_reward:
                 best_avg_reward = avg_reward
                 idle_episode = 0
-                with open('best_rewards.csv', 'a') as f:
+                with open('best_rewards_discrete.csv', 'a') as f:
                     f.write(f"Episode {episode}, Reward: {avg_reward}, Optimal Reward: {optimal_reward}\n")
                 save_model(agent, "best_models/"+ configurations['model_version'] +"_offline_policy.pth", "best_models/"+ configurations['model_version'] +"_offline_value.pth")
             else:
@@ -581,16 +616,14 @@ def train_ppo(env, agent, max_episodes=1000, optimal_reward=0):
 
             if not reward_flag and avg_reward > 0.9 * optimal_reward:
                 reward_flag = True
-                with open('best_rewards.csv', 'a') as f:
+                with open('best_rewards_discrete.csv', 'a') as f:
                     f.write(f"Episode {episode}, Reward: {avg_reward}******FLAG REACHED**********\n")
             if reward_flag and idle_episode>1000:
-                with open('best_rewards.csv', 'a') as f:
-                    f.write(f"Episode {episode}, Reward: {avg_reward}******BYEEEEEEEEEEE**********\n")
-                    f.write(f"Rewards List:\n {total_rewards}\n")
-
                 break
 
-
+    with open('best_rewards_discrete.csv', 'a') as f:
+        f.write(f"Episode {episode}, Reward: {avg_reward}******BYEEEEEEEEEEE**********\n")
+        f.write(f"Rewards List:\n {total_rewards}\n")
     return total_rewards
 
 def plot_rewards(rewards, title, pdf_file):
@@ -731,16 +764,16 @@ if __name__ == '__main__':
         os.remove('threads'+ configurations['model_version'] +'.csv')
     if os.path.exists('throughputs'+ configurations['model_version'] +'.csv'):
         os.remove('throughputs'+ configurations['model_version'] +'.csv')
-    
+
     oneGB = 1024
-    sender_buffer_capacity=12 * oneGB
-    receiver_buffer_capacity=2 * oneGB
-    read_throughput_per_thread=839
-    network_throughput_per_thread=272
-    write_throughput_per_thread=744
-    read_bandwidth=14395
-    network_bandwidth=4396
-    write_bandwidth=9228
+    sender_buffer_capacity=11.5 * oneGB
+    receiver_buffer_capacity=2.2 * oneGB
+    read_throughput_per_thread=74
+    network_throughput_per_thread=162
+    write_throughput_per_thread=173
+    read_bandwidth=1120
+    network_bandwidth=1057
+    write_bandwidth=2214
 
     bottleneck = min(read_bandwidth, network_bandwidth, write_bandwidth)
     optimal_read_thread = bottleneck/read_throughput_per_thread
