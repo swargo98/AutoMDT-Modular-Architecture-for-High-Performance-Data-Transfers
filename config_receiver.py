@@ -4,7 +4,7 @@ configurations = {
         "port": 50028
     },
     "rpc_port":"5002",
-    "data_dir": "dest/",
+    "data_dir": "/mnt/nvme0n1/dest/",
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
@@ -16,7 +16,7 @@ configurations = {
     "loglevel": "info",
     "io_limit": 150, # I/O limit (Mbps) per thread
     "memory_use": {
-        "maximum": 5,
+        "maximum": 1000,
         "threshold": 1,
     },
     'competing_transfer': 0,

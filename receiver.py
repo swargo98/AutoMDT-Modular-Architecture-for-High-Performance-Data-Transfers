@@ -151,7 +151,7 @@ def receive_file(sock, process_id):
                             break
                     os.close(fd)
 
-                    if rq_size == 0 and tq_size == 0 and move_complete.value >= 15:
+                    if rq_size == 0 and tq_size == 0 and move_complete.value >= 1024:
                         print(f"Transfer Done 143: {filename}")
                         transfer_done.value = 1
                 else:
@@ -238,7 +238,7 @@ def io_probing_ppo(params):
     with open('shared_memory_log_receiver_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
                 f.write(f"{used}\n")
 
-    if transfer_done.value == 1 and move_complete.value >= 15 and move_complete.value >= transfer_complete.value:
+    if transfer_done.value == 1 and move_complete.value >= 1024 and move_complete.value >= transfer_complete.value:
         print('234')
         print(transfer_done.value)
         print(move_complete.value)
@@ -376,8 +376,8 @@ def report_network_throughput():
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        if time_since_begining>15:
-            if sum(throughput_logs[-15:]) == 0:
+        if time_since_begining>60:
+            if sum(throughput_logs[-60:]) == 0:
                 print("Network Done! 340")
                 transfer_done.value  = 1
                 break

@@ -114,6 +114,13 @@ class NetworkOptimizationEnv(gym.Env):
             network_thread = np.random.randint(5, self.thread_limits[1]-1)
             write_thread = np.random.randint(5, self.thread_limits[1]-1)
             new_thread_counts = [read_thread, network_thread, write_thread]
+
+        ######COMMENT OUT THESE LINES AFTER EXPERMINET
+
+        # read_thread = 3
+        # network_thread = 3
+        # write_thread = 3
+        # new_thread_counts = [read_thread, network_thread, write_thread]
         
         # Compute utility and update state
         utility, self.state = self.get_utility_value(new_thread_counts)
