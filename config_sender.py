@@ -6,7 +6,7 @@ configurations = {
         "port": 50028
     },
     "rpc_port":"5002",
-    "data_dir": "src/",
+    "data_dir": "/mnt/nvme0n1/src/",
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
@@ -23,7 +23,7 @@ configurations = {
     "network_limit": -1, # Network limit (Mbps) per thread
     "io_limit": -1, # I/O limit (Mbps) per thread
     "memory_use": {
-        "maximum": 10,
+        "maximum": 1000,
         "threshold": 1,
     },
     "fixed_probing": {
@@ -31,21 +31,21 @@ configurations = {
         "thread": 3
     },
     "max_cc": {
-        "network": 100,
-        "io": 100,
-        'write': 100
+        "network": 20,
+        "io": 20,
+        'write': 20
     },
     'competing_transfer': 0,
-    # "mp_opt": True,
-    # "method": "ppo",
-    "mp_opt": False,
-    "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "multiplier": 2, # multiplier for each files, only for testing purpose
+    "mp_opt": True,
+    "method": "ppo",
+    # "mp_opt": False,
+    # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    "multiplier": 4, # multiplier for each files, only for testing purpose
     'max_episodes': 120,
-    "model_version": 'marlin_4gb',
+    "model_version": 'fixed_3',
     "mode": 'inference',
-    'inference_value_model': 'best_models/automdt_4gb_finetune_value.pth',
-    'inference_policy_model': 'best_models/automdt_4gb_finetune_policy.pth',
+    'inference_value_model': 'best_models/automdt_full_offline_value.pth',
+    'inference_policy_model': 'best_models/automdt_full_offline_policy.pth',
     'finetune_value_model': 'best_models/automdt_network_bn_offline_value.pth',
     'finetune_policy_model': 'best_models/automdt_network_bn_offline_policy.pth',
 }
