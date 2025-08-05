@@ -543,6 +543,8 @@ if __name__ == '__main__':
 
     chunk_size = 1024*1024
     root_dir = configurations["data_dir"]
+    if not os.path.exists(root_dir):
+        os.makedirs(root_dir)
     tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
     probing_time = configurations["probing_sec"]
     HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]

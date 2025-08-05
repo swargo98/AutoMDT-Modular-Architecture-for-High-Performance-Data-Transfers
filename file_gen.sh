@@ -7,7 +7,7 @@ file_size=100           # Size of each file in MB
 parallel_jobs=10        # Set parallel jobs to the number of CPU cores
 
 # Create the output directory if it doesn't exist
-# mkdir -p "$output_dir" || { echo "Error: Unable to create the output directory."; exit 1; }
+mkdir -p "$output_dir" || { echo "Error: Unable to create the output directory."; exit 1; }
 
 # Function to create a single file
 create_file() {
