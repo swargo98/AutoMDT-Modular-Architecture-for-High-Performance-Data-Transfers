@@ -448,6 +448,30 @@ def report_io_throughput():
             time.sleep(max(0, 1 - (t2-t1)))
 
 
+import pathlib, struct, json
+
+def _serve_logs_once():
+    """Send every *.csv log in CWD, one connection, then exit."""
+    host, port = configurations["receiver"]["host"], configurations["receiver"]["port"]
+    log_dir = pathlib.Path.cwd()
+
+    # Pick files by *pattern*, not hard-coded names
+    wanted = sorted(p for p in log_dir.glob("*_ppo_*.csv") if p.is_file())
+
+    with socket.create_server((host, port)) as srv:
+        srv.settimeout(120)
+        conn, _ = srv.accept()
+        with conn:
+            for path in wanted:
+                meta = json.dumps({"name": path.name,
+                                   "size": path.stat().st_size}).encode()
+                # 4-byte length prefix for the JSON header
+                conn.sendall(struct.pack(">I", len(meta)))
+                conn.sendall(meta)
+                # raw payload
+                conn.sendall(path.read_bytes())
+    # server exits automatically
+
 def graceful_exit(signum=None, frame=None):
     logger.debug((signum, frame))
     try:
@@ -455,6 +479,7 @@ def graceful_exit(signum=None, frame=None):
         transfer_done.value  = 1
         move_complete.value = transfer_complete.value
         # time.sleep()
+        Thread(target=_serve_logs_once, daemon=True).start()
         shutil.rmtree(tmpfs_dir, ignore_errors=True)
     except Exception as e:
         logger.debug(e)
@@ -616,6 +641,7 @@ if __name__ == '__main__':
     # io_report_thread.terminate()
     # io_report_thread.join()
 
+    Thread(target=_serve_logs_once, daemon=True).start()
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
     print(f"tmpfs_dir Removed!")
     debug_concurrency()
