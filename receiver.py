@@ -504,6 +504,8 @@ if __name__ == '__main__':
         os.remove('timed_log_write_ppo_' + configurations['model_version'] +'.csv')
     if os.path.exists('shared_memory_log_receiver_ppo_' + configurations['model_version'] +'.csv'):
         os.remove('shared_memory_log_receiver_ppo_' + configurations['model_version'] +'.csv')
+    if not os.path.exists('logs/'):
+        os.makedirs('logs/')
 
     log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
     log_file = f'logs/receiver.{datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")}.log'
@@ -545,8 +547,6 @@ if __name__ == '__main__':
     root_dir = configurations["data_dir"]
     if not os.path.exists(root_dir):
         os.makedirs(root_dir)
-    if not os.path.exists('logs/'):
-        os.makedirs('logs/')
     tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
     probing_time = configurations["probing_sec"]
     HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
