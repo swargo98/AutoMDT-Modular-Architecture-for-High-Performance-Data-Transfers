@@ -26,16 +26,14 @@ def receive_file_count(sock) -> None:
     header = b''.join(header).decode()
     if header.startswith("COUNT,"):
         expected_total.value = int(header.split(",")[1])
-        print(f"[Handshake] expecting {expected_total.value} files")
+        logger.info(f"[Handshake] expecting {expected_total.value} files")
     client.close()
 
 def move_file(process_id):
     while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
         if io_process_status[process_id] != 0 and mQueue:
-            logger.info(f'Starting File Mover Thread: {process_id}')
             try:
                 fname = mQueue.pop()
-                print(f"Process id: {process_id}; Moving File: {fname}")
                 fd = os.open(root_dir+fname, os.O_CREAT | os.O_RDWR)
                 block_size = chunk_size
                 if io_limit > 0:
@@ -98,15 +96,12 @@ def move_file(process_id):
 
 
 def receive_file(sock, process_id):
-    print(f"Receiver Thread: {process_id}")
     while transfer_done.value != 1:
         try:
             client, address = sock.accept()
-            print(f"Connected to {address}")
+            logger.debug(f"Process {process_id} Connected to {address}")
             logger.debug("{u} connected".format(u=address))
             used = get_dir_size(logger,tmpfs_dir)
-            print(f"Shared Memory -- Used: {used}GB")
-            print(f"Memory Limit: {memory_limit}GB")
             while used > memory_limit:
                 time.sleep(0.1)
 
@@ -155,7 +150,6 @@ def receive_file(sock, process_id):
                             chunk = client.recv(min(chunk_size, to_rcv))
                         else:
                             logger.debug(f"Socket :: {filename}")
-                            print(f"Receive Done 137: {filename}")
                             transfer_complete.value += 1
                             io_file_offsets[filename] = 0
                             with open('logs/'+ filename + '_offset.txt', 'a') as f:
@@ -165,7 +159,6 @@ def receive_file(sock, process_id):
                     os.close(fd)
 
                     if rq_size == 0 and tq_size == 0 and move_complete.value >= expected_total.value:
-                        print(f"Transfer Done 143: {filename}")
                         transfer_done.value = 1
                 else:
                     chunk = client.recv(chunk_size)
@@ -184,7 +177,6 @@ def receive_file(sock, process_id):
 
 
 def io_probing(params):
-    print(f"Probing Parameters 168: {params}")
     global io_throughput_logs
     if transfer_done.value == 1 and move_complete.value >= transfer_complete.value:
         return exit_signal
@@ -202,13 +194,9 @@ def io_probing(params):
     # time.sleep(n_time)
     while (time.time() < n_time) and (transfer_done.value == 0 or move_complete.value < transfer_complete.value):
         time.sleep(0.1)
-        print(f"Probing Parameters 184: {params}")
 
     thrpt = np.mean(io_throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
     K = float(configurations["K"])
-    # score = thrpt
-    # cc_impact_lin = (K-1) * num_transfer_workers.value
-    # score = thrpt * (1-cc_impact_lin)
     cc_impact_nl = K**params[0]
     score = thrpt/cc_impact_nl
     score_value = np.round(score * (-1))
@@ -228,7 +216,6 @@ def io_probing(params):
 def io_probing_ppo(params):
     global io_throughput_logs
     if transfer_done.value == 1 and move_complete.value >= transfer_complete.value:
-        print('213')
         return exit_signal, None
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
@@ -252,10 +239,6 @@ def io_probing_ppo(params):
                 f.write(f"{used}\n")
 
     if transfer_done.value == 1 and move_complete.value >= expected_total.value and move_complete.value >= transfer_complete.value:
-        print('234')
-        print(transfer_done.value)
-        print(move_complete.value)
-        print(transfer_complete.value)
         return exit_signal, None
     else:
         return thrpt, used
@@ -301,11 +284,10 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
     @dispatcher.public
     def set_thread(thread):
         nonlocal prev_thrpt, prev_thread, used, curr_thrpt, curr_thread
-        print(f"Setting Thread: {thread}")
+        logger.info(f"Setting Thread: {thread}")
         prev_thread, prev_thrpt = curr_thread, curr_thrpt
         curr_thread = thread
         curr_thrpt, used = black_box_function([curr_thread])
-        print(f"Thread: {curr_thread}, Throughput: {curr_thrpt}")
 
     @dispatcher.public
     def get_throughput():
@@ -316,7 +298,7 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
         # nonlocal transport
         """Wait briefly, then force a process exit."""
         time.sleep(0.1)
-        print("Exiting Server") 
+        logger.info("Exiting Server") 
         # transport.context.term()
         sys.exit(0)
         # os._exit(0)
@@ -325,30 +307,26 @@ def start_server(max_cc, black_box_function, logger, verbose=True):
     def exit():
         # Return immediately to client to avoid blocking them
         threading.Thread(target=_delayed_exit).start()
-        print("Exiting Server")
     
-    print("Server is starting...")
+    logger.info("RPC Server is starting...")
     rpc_server.serve_forever()  # Blocking call.
 
 def ppo_optimizer(max_cc, black_box_function, logger, verbose=True):
-    print("Starting PPO Server in another thread.")
+    logger.info("Starting RPC Server in another thread.")
     server_thread = threading.Thread(target=start_server, args=(max_cc, black_box_function, logger, verbose), daemon=False)
     server_thread.start()
 
-    print("PPO Server started in another thread.")
     server_thread.join()
 
-    print("Main thread exiting.")
+    logger.info("Main RPC thread exiting.")
 
 
 def run_optimizer(probing_func):
-    print("Running Optimizer .... ")
     while start.value == 0:
         time.sleep(0.1)
 
     params = [2]
     if configurations["method"].lower() == "ppo":
-        print("Running PPO Optimization .... ")
         logger.info("Running PPO Optimization .... ")
         ppo_optimizer(configurations["thread_limit"], io_probing_ppo, logger)
 
@@ -373,7 +351,6 @@ def run_optimizer(probing_func):
         params = base_optimizer(configurations, probing_func, logger)
 
     while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
-        print(f"Optimizer -- {params}")
         probing_func(params)
 
 
@@ -395,8 +372,7 @@ def report_network_throughput():
 
         if time_since_begining>60:
             if sum(throughput_logs[-60:]) == 0:
-                print("Network Done! 340")
-                print(f"Transfer Done: {transfer_complete.value}; Move Complete: {move_complete.value}")
+                logger.info(f"Transfer Done: {transfer_complete.value}; Move Complete: {move_complete.value}")
                 transfer_done.value  = 1
                 break
 
@@ -437,8 +413,6 @@ def report_io_throughput():
 
         if time_since_begining>1000:
             if sum(io_throughput_logs[-1000:]) == 0:
-                print("I/O Done! 374")
-                # transfer_done.value = 1
                 move_complete.value = transfer_complete.value
                 break
 
@@ -483,13 +457,13 @@ def graceful_exit(signum=None, frame=None):
     exit(1)
 
 def debug_concurrency():
-    print("=== Threads ===")
+    logger.info("=== Threads ===")
     for t in threading.enumerate():
-        print(f" - {t.name} (alive={t.is_alive()}, daemon={t.daemon})")
+        logger.info(f" - {t.name} (alive={t.is_alive()}, daemon={t.daemon})")
 
-    print("=== Processes ===")
+    logger.info("=== Processes ===")
     for c in mp.active_children():
-        print(f" - {c.name} PID={c.pid} (alive={c.is_alive()})")
+        logger.info(f" - {c.name} PID={c.pid} (alive={c.is_alive()})")
 
 
 if __name__ == '__main__':
@@ -578,7 +552,7 @@ if __name__ == '__main__':
     memory_limit = min(configurations["memory_use"]["maximum"], free/2)
     num_workers = configurations['thread_limit']
 
-    print(f"Memory Limit: {memory_limit}GB")
+    logger.info(f"Memory Limit: {memory_limit}GB")
 
     sock = socket.socket()
     sock.bind((HOST, PORT))
@@ -591,14 +565,14 @@ if __name__ == '__main__':
         p.daemon = True
         p.start()
 
-    print(f"Receiver Started at {HOST}:{PORT}: {num_workers} Threads")
+    logger.info(f"Receiver Started at {HOST}:{PORT}: {num_workers} Threads")
 
     io_workers = [mp.Process(target=move_file, args=(i,)) for i in range(num_workers)]
     for p in io_workers:
         p.daemon = True
         p.start()
 
-    print(f"File Mover Threads Started")
+    logger.info(f"File Mover Threads Started")
 
     network_report_thread = Thread(target=report_network_throughput, daemon=True)
     network_report_thread.start()
@@ -609,10 +583,8 @@ if __name__ == '__main__':
     io_optimizer_thread = Thread(target=run_optimizer, args=(io_probing,))
     io_optimizer_thread.start()
 
-    print(f"Optimizer Thread Started")
+    logger.info(f"Optimizer Thread Started")
 
-    # transfer_process_status[0] = 1
-    # while sum(transfer_process_status)>0:
     while transfer_done.value == 0:
         time.sleep(0.1)
 
@@ -635,14 +607,13 @@ if __name__ == '__main__':
             p.terminate()
             p.join(timeout=0.1)
 
-    print(f"Transfer Completed!")
-    print(f"tmpfs_dir: {tmpfs_dir}")
+    logger.info(f"Transfer Completed!")
 
     host, port = configurations["sender"]["host"], int(configurations["sender"]["port"])
     push_logs_to_sender(configurations, dest_host=host, dest_port=port)
     
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
-    print(f"tmpfs_dir Removed!")
+    logger.info(f"tmpfs_dir: {tmpfs_dir} Removed!")
     debug_concurrency()
     logger.debug(f"Transfer Completed!")
     os._exit(0)
