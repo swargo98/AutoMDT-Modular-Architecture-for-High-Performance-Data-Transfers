@@ -887,45 +887,6 @@ def report_io_throughput(start_time):
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(io_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 
-# import pathlib, struct, json
-
-# def fetch_logs_via_socket():
-#     host, port = configurations["receiver"]["host"], configurations['log_port']
-#     local_model = configurations["model_version"]
-#     dest_dir = pathlib.Path(configurations.get("log_dir", ""))
-#     dest_dir.mkdir(parents=True, exist_ok=True)
-
-#     with socket.create_connection((host, port), timeout=60) as s:
-#         while True:
-#             # read 4-byte header length; break on EOF
-#             hdr_len_bytes = s.recv(4)
-#             if not hdr_len_bytes:
-#                 break
-#             hdr_len = struct.unpack(">I", hdr_len_bytes)[0]
-#             header  = json.loads(s.recv(hdr_len).decode())
-#             fname   = header["name"]
-#             fsize   = header["size"]
-
-#             # pull payload
-#             remaining, chunks = fsize, []
-#             while remaining:
-#                 chunk = s.recv(min(65536, remaining))
-#                 if not chunk:
-#                     raise RuntimeError("socket closed early")
-#                 chunks.append(chunk)
-#                 remaining -= len(chunk)
-#             data = b"".join(chunks)
-
-#             # Decide *new* local filename
-#             if fname.startswith("shared_memory_log_receiver_ppo_"):
-#                 new_name = f"shared_memory_log_receiver_ppo_{local_model}.csv"
-#             elif fname.startswith("timed_log_write_ppo_"):
-#                 new_name = f"timed_log_write_ppo_{local_model}.csv"
-#             else:                       # fall-back: keep original
-#                 new_name = fname
-
-#             (dest_dir / new_name).write_bytes(data)
-#             print(f"✔  saved {new_name} ({fsize} B)")
 from sender_helper import start_log_listener
 
 def graceful_exit(signum=None, frame=None):
@@ -1076,9 +1037,6 @@ if __name__ == '__main__':
         p.start()
 
     start = time.time()
-    # reporting_process = mp.Process(target=report_network_throughput, args=(start,))
-    # reporting_process.daemon = True
-    # reporting_process.start()
     network_report_thread = Thread(target=report_network_throughput, args=(start,))
     network_report_thread.start()
 
@@ -1115,10 +1073,10 @@ if __name__ == '__main__':
         if p.is_alive():
             p.terminate()
             p.join(timeout=0.1)
-    # time.sleep(90)
-    # fetch_logs_via_socket()
+
     host, port = configurations["sender"]["host"], configurations["sender"]["port"]
     start_log_listener(configurations, host=host, port=int(port))
+    
     print(f'tmpfs_dir: {tmpfs_dir}')
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
     debug_concurrency()
