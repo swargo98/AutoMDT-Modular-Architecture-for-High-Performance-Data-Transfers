@@ -5,8 +5,11 @@ configurations = {
         "host": "192.168.1.2",
         "port": 50028
     },
+    "sender": {
+        "host": "192.168.1.1",
+        "port": 5003
+    },
     "rpc_port":"5002",
-    "log_port": "5003",
     "data_dir": "/mnt/nvme0n1/src/",
     "bayes": {
         "initial_run": 3,
@@ -42,7 +45,7 @@ configurations = {
     # "mp_opt": False,
     # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
     "multiplier": 1, # multiplier for each files, only for testing purpose
-    'max_episodes': 1,
+    'max_episodes': 2,
     "model_version": 'random',
     "mode": 'random',
     'inference_value_model': 'best_models/automdt_full_offline_value.pth',

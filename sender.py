@@ -937,7 +937,7 @@ def graceful_exit(signum=None, frame=None):
         logger.debug(e)
 
     # fetch_logs_via_socket()
-    host, port = configurations["receiver"]["host"], configurations['log_port']
+    host, port = configurations["sender"]["host"], configurations["sender"]["port"]
     start_log_listener(configurations, host=host, port=int(port))
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
     exit(1)
@@ -1115,9 +1115,9 @@ if __name__ == '__main__':
         if p.is_alive():
             p.terminate()
             p.join(timeout=0.1)
-    time.sleep(90)
+    # time.sleep(90)
     # fetch_logs_via_socket()
-    host, port = configurations["receiver"]["host"], configurations['log_port']
+    host, port = configurations["sender"]["host"], configurations["sender"]["port"]
     start_log_listener(configurations, host=host, port=int(port))
     print(f'tmpfs_dir: {tmpfs_dir}')
     shutil.rmtree(tmpfs_dir, ignore_errors=True)

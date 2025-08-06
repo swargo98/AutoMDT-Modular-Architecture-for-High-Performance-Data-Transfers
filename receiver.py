@@ -482,7 +482,7 @@ def graceful_exit(signum=None, frame=None):
         move_complete.value = transfer_complete.value
         # time.sleep()
         # Thread(target=_serve_logs_once, daemon=True).start()
-        host, port = configurations["receiver"]["host"], int(configurations['log_port'])
+        host, port = configurations["sender"]["host"], int(configurations["sender"]["port"])
         push_logs_to_sender(configurations, dest_host=host, dest_port=port)
         shutil.rmtree(tmpfs_dir, ignore_errors=True)
     except Exception as e:
@@ -650,7 +650,7 @@ if __name__ == '__main__':
     # io_report_thread.join()
 
     # Thread(target=_serve_logs_once, daemon=True).start()
-    host, port = configurations["receiver"]["host"], int(configurations['log_port'])
+    host, port = configurations["sender"]["host"], int(configurations["sender"]["port"])
     push_logs_to_sender(configurations, dest_host=host, dest_port=port)
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
     print(f"tmpfs_dir Removed!")
