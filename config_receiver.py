@@ -1,9 +1,10 @@
 configurations = {
     "receiver": {
-        "host": "192.168.1.1",
+        "host": "192.168.1.2",
         "port": 50028
     },
     "rpc_port":"5002",
+    "log_port": "5003",
     "data_dir": "/mnt/nvme0n1/dest/",
     "bayes": {
         "initial_run": 3,

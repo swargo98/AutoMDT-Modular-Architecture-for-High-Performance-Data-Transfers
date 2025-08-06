@@ -2,10 +2,11 @@
 
 configurations = {
     "receiver": {
-        "host": "192.168.1.1",
+        "host": "192.168.1.2",
         "port": 50028
     },
     "rpc_port":"5002",
+    "log_port": "5003",
     "data_dir": "/mnt/nvme0n1/src/",
     "bayes": {
         "initial_run": 3,
@@ -40,12 +41,10 @@ configurations = {
     "method": "ppo",
     # "mp_opt": False,
     # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "multiplier": 4, # multiplier for each files, only for testing purpose
-    'max_episodes': 120,
-    "model_version": 'fixed_3',
-    "mode": 'inference',
+    "multiplier": 1, # multiplier for each files, only for testing purpose
+    'max_episodes': 1,
+    "model_version": 'random',
+    "mode": 'random',
     'inference_value_model': 'best_models/automdt_full_offline_value.pth',
-    'inference_policy_model': 'best_models/automdt_full_offline_policy.pth',
-    'finetune_value_model': 'best_models/automdt_network_bn_offline_value.pth',
-    'finetune_policy_model': 'best_models/automdt_network_bn_offline_policy.pth',
+    'inference_policy_model': 'best_models/automdt_full_offline_policy.pth'
 }

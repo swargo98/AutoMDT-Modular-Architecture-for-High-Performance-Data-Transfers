@@ -483,8 +483,8 @@ class PPOOptimizer:
         self.env = NetworkOptimizationEnv(black_box_function=self.get_reward, state=state, history_length=self.history_length)
         self.agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
 
-        policy_model = "models/"+ 'residual_cl_v1_policy_9100.pth'
-        value_model = "models/"+ 'residual_cl_v1_value_9100.pth'
+        policy_model = ""
+        value_model = ""
         is_inference = False
         is_random = False
 
@@ -492,17 +492,12 @@ class PPOOptimizer:
             is_inference = True
             policy_model = configurations['inference_policy_model']
             value_model = configurations['inference_value_model']
-        elif configurations['mode'] == 'finetune':
-            policy_model = configurations['finetune_policy_model']
-            value_model = configurations['finetune_value_model']
         else:
             is_random = True
 
-        optimals = [7, 7, 7, 7000]
-
-        print(f"Loading model... Value: {value_model}, Policy: {policy_model}")
-        load_model(self.agent, policy_model, value_model)
-        print("Model loaded successfully.")
+        if not is_random:
+            load_model(self.agent, policy_model, value_model)
+        print("Model loaded successfully. Value: {value_model}, Policy: {policy_model}")
 
         rewards = train_ppo(self.env, self.agent, max_episodes=configurations['max_episodes'], is_inference = is_inference, is_random = is_random)
 
@@ -889,7 +884,7 @@ def report_io_throughput(start_time):
 import pathlib
 
 def fetch_logs_via_socket():
-    host, port = configurations["receiver"]["host"], configurations["receiver"]["port"]
+    host, port = configurations["receiver"]["host"], configurations['log_port']
     local_model = configurations["model_version"]
     dest_dir = pathlib.Path(configurations.get("log_dir", "./logs"))
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -959,6 +954,8 @@ if __name__ == '__main__':
         os.remove('timed_log_read_ppo_' + configurations['model_version'] +'.csv')
     if os.path.exists('shared_memory_log_sender_ppo_' + configurations['model_version'] +'.csv'):
         os.remove('shared_memory_log_sender_ppo_' + configurations['model_version'] +'.csv')
+    if not os.path.exists('logs/'):
+        os.makedirs('logs/')
 
     net_cc = configurations["max_cc"]["network"]
     net_cc = net_cc if net_cc>0 else mp.cpu_count()
