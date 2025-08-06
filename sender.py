@@ -509,7 +509,7 @@ class PPOOptimizer:
 
         if not is_random:
             load_model(self.agent, policy_model, value_model)
-        print("Model loaded successfully. Value: {value_model}, Policy: {policy_model}")
+        print(f"Model loaded successfully. Value: {value_model}, Policy: {policy_model}")
 
         rewards = train_ppo(self.env, self.agent, max_episodes=configurations['max_episodes'], is_inference = is_inference, is_random = is_random)
 
@@ -859,8 +859,6 @@ def report_network_throughput(start_time):
             previous_transfer_file_offsets = list(transfer_file_offsets)
             t2 = time.time()
             fname = 'timed_log_network_ppo_' + configurations['model_version'] +'.csv'
-            if configurations['competing_transfer'] > 0:
-                fname = 'timed_log_network_ppo_' + configurations['model_version'] + '_' + str(configurations['competing_transfer']) + '.csv'
             with open(fname, 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(transfer_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
@@ -887,8 +885,6 @@ def report_io_throughput(start_time):
 
             t2 = time.time()
             fname = 'timed_log_read_ppo_' + configurations['model_version'] +'.csv'
-            if configurations['competing_transfer'] > 0:
-                fname = fname = 'timed_log_read_ppo_' + configurations['model_version'] + '_' + str(configurations['competing_transfer']) + '.csv'
             with open(fname, 'a') as f:
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(io_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
@@ -904,6 +900,7 @@ def graceful_exit(signum=None, frame=None):
         logger.debug(e)
 
     # fetch_logs_via_socket()
+    print("Exiting Sender....")
     host, port = configurations["sender"]["host"], configurations["sender"]["port"]
     start_log_listener(configurations, host=host, port=int(port))
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
@@ -983,8 +980,6 @@ if __name__ == '__main__':
         io_limit = int(configurations["io_limit"])
 
     file_transfer = True
-    if "file_transfer" in configurations and configurations["file_transfer"] is not None:
-        file_transfer = configurations["file_transfer"]
 
     manager = mp.Manager()
     root_dir = configurations["data_dir"]

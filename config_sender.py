@@ -1,5 +1,3 @@
-## Falcon Configurations
-
 configurations = {
     "receiver": {
         "host": "192.168.1.2",
@@ -11,15 +9,6 @@ configurations = {
     },
     "rpc_port":"5002",
     "data_dir": "/mnt/nvme0n1/src/",
-    "bayes": {
-        "initial_run": 3,
-        "num_of_exp": -1 #-1 for infinite
-    },
-    "random": {
-        "num_of_exp": 10
-    },
-    "centralized": False, # True for centralized optimization
-    "file_transfer": True,
     "B": 10, # severity of the packet loss punishment
     "K": 1.02, # cost of increasing concurrency
     "loglevel": "info",
@@ -39,15 +28,18 @@ configurations = {
         "io": 20,
         'write': 20
     },
-    'competing_transfer': 0,
-    "mp_opt": True,
-    "method": "ppo",
-    # "mp_opt": False,
-    # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
-    "multiplier": 1, # multiplier for each files, only for testing purpose
-    'max_episodes': 2,
-    "model_version": 'random',
-    "mode": 'random',
-    'inference_value_model': 'best_models/automdt_full_offline_value.pth',
-    'inference_policy_model': 'best_models/automdt_full_offline_policy.pth'
+    "mp_opt": True, # use true for ppo, false for gradient
+    "method": "ppo", # options: [gradient, ppo]
+    "model_version": 'random', # just a tag for the model
+    "mode": 'inference',
 }
+
+mv = configurations["model_version"]
+configurations.setdefault("inference_value_model",
+                          f"best_models/{mv}_offline_value.pth")
+configurations.setdefault("inference_policy_model",
+                          f"best_models/{mv}_offline_policy.pth")
+configurations.setdefault("max_episodes",
+                            20 if configurations["mode"] == "random" else 20000)
+configurations.setdefault("multiplier",
+                            20 if configurations["mode"] == "random" else 1)            

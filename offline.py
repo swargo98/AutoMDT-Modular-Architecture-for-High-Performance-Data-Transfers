@@ -731,6 +731,12 @@ if __name__ == '__main__':
         os.remove('threads'+ configurations['model_version'] +'.csv')
     if os.path.exists('throughputs'+ configurations['model_version'] +'.csv'):
         os.remove('throughputs'+ configurations['model_version'] +'.csv')
+
+    # crerate models and best_models directory if not exists
+    if not os.path.exists('models'):
+        os.makedirs('models')
+    if not os.path.exists('best_models'):
+        os.makedirs('best_models')
     
     oneGB = 1024
 
