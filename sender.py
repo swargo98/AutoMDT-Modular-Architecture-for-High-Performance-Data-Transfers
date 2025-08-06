@@ -12,7 +12,7 @@ from threading import Thread
 from config_sender import configurations
 from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, gradient_multivariate
 from utils import tcp_stats, run, available_space, get_dir_size
-from ppo import SimulatorState, NetworkOptimizationEnv, PPOAgentContinuous, load_model, train_ppo, plot_rewards, plot_threads_csv, plot_throughputs_csv
+from ppo import SimulatorState, NetworkOptimizationEnv, PPOAgentContinuous, load_model, train_ppo
 import contextlib
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -37,35 +37,26 @@ def copy_file(process_id):
                         continue
                     if file_transfer:
                         fname = file_names[file_id]
-                        # print(f"Copying 30: {fname}")
                         fd = os.open(tmpfs_dir+fname, os.O_CREAT | os.O_RDWR)
                         block_size = chunk_size
                         if io_limit > 0:
                             target, factor = io_limit, 8
                             max_speed = (target * 1024 * 1024)/8
-                            # print(f"Max Speed: {max_speed}")
                             second_target, second_data_count = int(max_speed/factor), 0
                             block_size = min(block_size, second_target)
                             timer100ms = time.time()
 
                         with open(root_dir+fname.split('-')[0], "rb") as ff:
-                            # print(f"Offset 42: {offset}")
                             ff.seek(int(offset))
                             chunk = ff.read(block_size)
 
                             os.lseek(fd, int(offset), os.SEEK_SET)
-                            # offset_update = time.time()
                             while chunk and io_process_status[process_id] == 1:
-                                # print(f"Writing 49: {fname}")
                                 os.write(fd, chunk)
                                 offset += len(chunk)
 
                                 # Update every 100 milliseconds
-                                # if time.time()-offset_update > 0.1:
                                 io_file_offsets[file_id] = offset
-                                # print(f"Offset 56: {offset}")
-
-                                    # offset_update = time.time()
 
                                 if io_limit > 0:
                                     second_data_count += len(chunk)
@@ -78,7 +69,6 @@ def copy_file(process_id):
 
                                 chunk = ff.read(block_size)
 
-                            # print(f"Offset 71: {offset}")
                             io_file_offsets[file_id] = offset
                             if offset < file_sizes[file_id]:
                                 logger.debug(f"I/O - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
@@ -87,24 +77,13 @@ def copy_file(process_id):
                                 logger.debug(f'I/O :: {file_id}')
 
                             if offset >= file_sizes[file_id] and file_id not in tQueue:
-                                # print(f"Adding to tQueue: {file_id}")
                                 file_copied.value += 1
                                 tQueue[file_id] = 0
-                                # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                #     f.write(f"85 {file_id} {offset} {tQueue}; {rQueue}\n")
-
-                                # Code for finetuning; adding the file to the rQueue
-                                # rQueue[file_id] = 0
-                                # io_file_offsets[file_id] = 0
-
-                                # print (f"tQueue: {tQueue}")
 
                         os.close(fd)
                     else:
                         io_file_offsets[file_id] = file_sizes[file_id]
                         tQueue[file_id] = 0
-                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                        #             f.write(f"98 {file_id} {tQueue}; {rQueue}\n")
             except KeyError:
                 time.sleep(0.1)
 
@@ -118,19 +97,16 @@ def copy_file(process_id):
 
 
 def transfer_file(process_id):
-    # print("Transfer File")
     global file_processed
     while file_processed.value < file_count:
-        # print(f"Transfer File. Status: {transfer_process_status[process_id]}")
         if transfer_process_status[process_id] == 1:
             try:
                 logger.debug(f'Starting TCP Socket Thread: {process_id}')
                 sock = socket.socket()
                 sock.settimeout(3)
                 sock.connect((HOST, PORT))
-                # print(f"Connected {HOST}:{PORT}")
             except socket.timeout as e:
-                print(f"Socket Timeout: {e}")
+                logger.info(f"Socket Timeout: {e}")
                 # logger.exception(e)
                 continue
 
@@ -140,15 +116,6 @@ def transfer_file(process_id):
                     if file_id is None:
                         time.sleep(0.1)
                         continue
-                    # print(f"Popped File ID: {file_id}, Offset: {offset}")
-                    # if transfer_file_offsets[file_id] > offset:
-                    #     with open('anomaly2.txt', 'a') as f:
-                    #         f.write('-----------130---------------------')
-                    #         f.write(f"changed_file_name = {file_names[file_id]}\n")
-                    #         f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
-                    
-                    # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                    #             f.write(f"127 {process_id}; {file_id}: prev, curr = {transfer_file_offsets[file_id]}, {offset}; {tQueue}\n")
 
                     offset = transfer_file_offsets[file_id]
 
@@ -164,55 +131,30 @@ def transfer_file(process_id):
                         if file_transfer:
                             try:
                                 with open(filename, 'rb') as file:
-                                    # msg = f"{len(rQueue)},{len(tQueue)},{file_names[file_id] + '_' + str(time.time())},{int(offset)},{int(to_send)}\n"
                                     msg = f"{len(rQueue)},{len(tQueue)},{file_names[file_id]},{int(offset)},{int(to_send)}\n"
                                     sock.send(msg.encode())
                                     logger.debug(f"starting {process_id}, {filename}, {offset}, {len(tQueue)}")
 
                                     timer100ms = offset_update = time.time()
                                     while (int(to_send) > 0) and (transfer_process_status[process_id] == 1):
-                                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                        #     f.write(f"157 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send}, {file.tell()}\n")
 
                                         if network_limit>0:
                                             block_size = min(chunk_size, second_target-second_data_count, to_send)
                                         else:
                                             block_size = min(chunk_size, to_send)
 
-                                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                        #     f.write(f"Bef {process_id}:ore SENT; {sent}; {offset} {int(block_size)}\n")
-
                                         if file_transfer:
                                             sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
                                         else:
                                             data_to_send = bytearray(int(block_size))
                                             sent = sock.send(data_to_send)
-                                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                        #     f.write(f"Aft {process_id}:er SENT; {sent}; {offset} {int(block_size)}\n")
-                                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                        #     f.write(f"159 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send}, {file.tell()}, {sent}\n")
                                         offset += sent
                                         to_send -= sent
-                                        
-                                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                        #     f.write(f"160 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send}, {file.tell()}\n")
 
                                         ## Update every 100 milliseconds
                                         if time.time() - offset_update >= 0.1:
-                                            # if transfer_file_offsets[file_id] > offset:
-                                            #     # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                            #     #     f.write(f"164 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send}, {file.tell()}\n")
-                                            #     with open('anomaly2.txt', 'a') as f:
-                                            #         f.write('-----------164---------------------')
-                                            #         f.write(f"changed_file_name = {file_names[file_id]}\n")
-                                            #         f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
-                                            #         f.write(f"total_transfer_file_offsets = {sum(transfer_file_offsets)}\n")
-                                            #         f.write(f"current_transfer_file_offsets = {list(transfer_file_offsets)}\n")
                                             transfer_file_offsets[file_id] = offset
                                             offset_update = time.time()
-
-                                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                        #     f.write(f"186 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send}, {file.tell()}\n")
 
                                         if network_limit>0:
                                             second_data_count += sent
@@ -222,65 +164,23 @@ def transfer_file(process_id):
                                                     pass
 
                                                 timer100ms = time.time()
-
-                                    # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                                    #     f.write(f"206 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send}, {file.tell()}\n")
                             except Exception as e:
-                                print("An error occurred:", e)
+                                logger.info("An error occurred:", e)
 
-                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                        #     f.write(f"209 {process_id}: prev, curr, to_send, file.tell(nai) = {transfer_file_offsets[file_id]}, {offset}, {to_send}\n")
-                        
-                        # if transfer_file_offsets[file_id] > offset:
-                        #     with open('anomaly2.txt', 'a') as f:
-                        #         f.write('-----------186---------------------')
-                        #         f.write(f"changed_file_name = {file_names[file_id]}\n")
-                        #         f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
-                        #         f.write(f"total_transfer_file_offsets = {sum(transfer_file_offsets)}\n")
-                        #         f.write(f"current_transfer_file_offsets = {list(transfer_file_offsets)}\n")
-                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                        #     f.write(f"216 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send}\n")
                         transfer_file_offsets[file_id] = offset
-                        # print(f"Transfer File Offset: {float(offset)}")
-                        # print(f"I/O File Offset: {float(io_file_offsets[file_id])}")
-                        # print(f"{rQueue}, {tQueue}")
-                        
-                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                        #     f.write(f"223 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send} {float(io_file_offsets[file_id])}; {int(offset) < int(io_file_offsets[file_id])} {file_id in rQueue}\n")
                             
                         if float(offset) < float(io_file_offsets[file_id]) or file_id in rQueue:
                             logger.debug(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
-                            # print(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
-                            # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                            #     f.write(f"224 {process_id}: prev, curr, to_send, file.tell() = {transfer_file_offsets[file_id]}, {offset}, {to_send} {float(io_file_offsets[file_id])} {file_id in rQueue}\n")
-                            # if transfer_file_offsets[file_id] > offset:
-                            #     with open('anomaly2.txt', 'a') as f:
-                            #         f.write('-----------205---------------------')
-                            #         f.write(f"changed_file_name = {file_names[file_id]}\n")
-                            #         f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
                             tQueue[file_id] = transfer_file_offsets[file_id]
                         else:
-                            # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                            #     f.write(f"244 {process_id}: ELSE\n")
-                                # f.write(f'{tQueue}\n')
                             logger.debug(f'Transfer :: {file_id}!')
-                            # print(f'Transfer :: {file_id}!')
                             file_processed.value += 1
-                            print(f"File Processed: {file_processed.value}")
+                            logger.info(f"File Processed: {file_processed.value}")
                             if file_transfer:
                                 run(f'rm {filename}', logger)
                                 logger.debug(f'Cleanup :: {file_id}!')
-                            # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                            #     f.write(f"254 {process_id}: ELSE {tQueue}\n")
                     else:
-                        # if transfer_file_offsets[file_id] > offset:
-                        #     with open('anomaly2.txt', 'a') as f:
-                        #         f.write('-----------221---------------------')
-                        #         f.write(f"changed_file_name = {file_names[file_id]}\n")
-                        #         f.write(f"previous, current = {transfer_file_offsets[file_id]}, {offset}\n")
                         tQueue[file_id] = transfer_file_offsets[file_id]
-                        # with open(file_names[file_id] + '_offset.txt', 'a') as f:
-                        #         f.write(f"263 {process_id}: ELSE; {offset}; {transfer_file_offsets[file_id]}; {tQueue}\n")
                 except KeyError:
                     time.sleep(0.1)
                     continue
@@ -306,8 +206,6 @@ def network_probing(params):
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
     logger.info("Network -- Probing Parameters: {0}".format(params))
-    # with open('threads_log_univ_gd_network.csv', 'a') as f:
-    #         f.write(f"{params}\n")
     for i in range(len(transfer_process_status)):
         transfer_process_status[i] = 1 if i < params[0] else 0
 
@@ -315,7 +213,6 @@ def network_probing(params):
     time.sleep(1)
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
-    # time.sleep(n_time)
     while (time.time() < n_time) and (file_processed.value < file_count):
         time.sleep(0.1)
 
@@ -331,14 +228,10 @@ def network_probing(params):
 
     # score = thrpt
     plr_impact = B*lr
-    # cc_impact_lin = (K-1) * params[0]
-    # score = thrpt * (1- plr_impact - cc_impact_lin)
     cc_impact_nl = K**params[0]
     score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
     score_value = np.round(score * (-1))
 
-    # with open('throughputs_log_univ_gd_network.csv', 'a') as f:
-    #         f.write(f"{thrpt}\n")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
     logger.info("Network Probing -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
@@ -357,8 +250,6 @@ def io_probing(params):
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
     logger.info("I/O -- Probing Parameters: {0}".format(params))
-    # with open('threads_log_univ_gd_read.csv', 'a') as f:
-    #         f.write(f"{params}\n")
     for i in range(len(io_process_status)):
         io_process_status[i] = 1 if i < params[0] else 0
 
@@ -375,10 +266,6 @@ def io_probing(params):
     thrpt = np.mean(io_throughput_logs[-2:]) if len(io_throughput_logs) > 2 else 0
     K = float(configurations["K"])
     limit = min(configurations["memory_use"]["threshold"], memory_limit//2)
-    # storage_cost = K + max(0,used_disk-limit)/(limit*10)
-    # cc_impact_nl = storage_cost**params[0]
-    # score = thrpt/cc_impact_nl
-    # score_value = np.round(score * (-1))
 
     storage_cost = 0
     if used_disk>limit and used_disk > used_before:
@@ -388,9 +275,6 @@ def io_probing(params):
     score = thrpt/cc_impact_nl - thrpt*storage_cost
     score_value = np.round(score * (-1))
 
-    # with open('throughputs_log_univ_gd_read.csv', 'a') as f:
-    #         f.write(f"{thrpt}\n")
-    # logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
     logger.info(f"I/O Probing -- Throughput: {np.round(thrpt)}Mbps, Score: {score_value}")
     if not rQueue:
         return exit_signal
@@ -426,7 +310,6 @@ def get_write_state():
 
     remote_server = rpc_client.get_proxy()
     result = remote_server.get_state()
-    # print("Server answered:", result)
     return result
 
 def get_write_throughput():
@@ -440,7 +323,6 @@ def get_write_throughput():
 
     remote_server = rpc_client.get_proxy()
     result = remote_server.get_throughput()
-    # print("Server answered:", result)
     return result
 
 def exit_write_process():
@@ -453,9 +335,9 @@ def exit_write_process():
     )
 
     remote_server = rpc_client.get_proxy()
-    print("Exiting Server")
+    logger.info("Exiting Server")
     remote_server.exit()
-    print("Server answered: Exited")
+    logger.info("Server answered: Exited")
 
 class PPOOptimizer:
     def __init__(self):
@@ -490,7 +372,6 @@ class PPOOptimizer:
 
         state = self.get_state(is_start=True)
 
-        # print("Creating Environment")
 
         self.env = NetworkOptimizationEnv(black_box_function=self.get_reward, state=state, history_length=self.history_length)
         self.agent = PPOAgentContinuous(state_dim=8, action_dim=3, lr=1e-4, eps_clip=0.1)
@@ -509,22 +390,20 @@ class PPOOptimizer:
 
         if not is_random:
             load_model(self.agent, policy_model, value_model)
-        print(f"Model loaded successfully. Value: {value_model}, Policy: {policy_model}")
+        logger.info(f"Model loaded successfully. Value: {value_model}, Policy: {policy_model}")
 
         rewards = train_ppo(self.env, self.agent, max_episodes=configurations['max_episodes'], is_inference = is_inference, is_random = is_random)
 
     def get_state(self, is_start=False):
-        # print("Getting State")
-        write_thrpt, write_free, write_thread = 0, 1, 2 ###NEED TO FIX WRITE THROUGHPUT, and write buffer FROM RECEIVER SIDE
+        write_thrpt, write_free, write_thread = 0, 1, 2
         if not is_start:
-            write_thrpt, _, write_free_percentage, write_thread = get_write_state()
+            write_thrpt, _, write_free, write_thread = get_write_state()
         read_thrpt = self.current_read_throughput
         network_thrpt = self.current_network_throughput
         read_thread = self.current_read_thread
         network_thread = self.current_network_thread
         free_disk = (memory_limit - self.used_disk)
 
-        # print(f"State -- Read: {self.current_read_thread}, Network: {self.current_network_thread}, Write: {write_thread}")
 
         state = SimulatorState(sender_buffer_remaining_capacity=free_disk * 1024,
                                receiver_buffer_remaining_capacity=write_free * 1024,
@@ -535,16 +414,13 @@ class PPOOptimizer:
                                write_thread=write_thread,
                                network_thread=network_thread
                                )
-        # print(f"State 525: {state.to_array()}")
         return state
 
     def ppo_probing(self, params):
-        # print("PPO Probing")
         global io_throughput_logs, network_throughput_logs, exit_signal, rQueue, tQueue, file_processed, file_count
-        # global io_weight, net_weight
 
         if file_processed.value == file_count:
-            print("Exiting Write 464")
+            logger.info("Exiting Write 464")
             return [exit_signal, None, None]
         
         read_thread, network_thread, write_thread = map(int, params)
@@ -553,9 +429,7 @@ class PPOOptimizer:
         write_thread_set.start()
 
         logger.info("Probing Parameters - [Read, Network, Write]: {0}, {1}, {2}".format(read_thread, network_thread, write_thread))
-        # with open('threads_log_ppo_v' + configurations['model_version'] +'_2.csv', 'a') as f:
-        #     f.write(f"{[read_thread, network_thread]}\n{[write_thread]}\n")
-
+        
         for i in range(len(transfer_process_status)):
             transfer_process_status[i] = 1 if (i < network_thread and file_processed.value<file_count) else 0
 
@@ -568,9 +442,6 @@ class PPOOptimizer:
         # Before
         prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
         n_time = time.time() + probing_time - 1.05
-        # used_before = get_dir_size(logger, tmpfs_dir)
-        # Sleep
-        # time.sleep(n_time)
         while (time.time() < n_time) and (file_processed.value < file_count):
             time.sleep(0.1)
 
@@ -599,28 +470,23 @@ class PPOOptimizer:
         with open('shared_memory_log_sender_ppo_' + configurations['model_version'] +'.csv', 'a') as f:
                 f.write(f"{used_disk}\n")
 
-        # print (f"tQueue: {tQueue}")
         if file_processed.value == file_count:
-            # print("Exiting Write 516")
             return [exit_signal, None, None]
 
         logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps")
         return [io_thrpt, net_thrpt, used_disk] #score_value
-        # return (net_score_value+io_score_value) / 2
 
     def get_reward(self, params):
         io_thrpt, net_thrpt, used_disk = self.ppo_probing(params)
         read_thread, network_thread, write_thread = map(int, params)
         write_thrpt = get_write_throughput()
 
-        print(f"Throughputs -- I/O: {io_thrpt}, Network: {net_thrpt}, Write: {write_thrpt}")
-        # with open('throughputs_log_ppo_v' + configurations['model_version'] +'_2.csv', 'a') as f:
-        #     f.write(f"{io_thrpt}, {net_thrpt}\n{write_thrpt}\n")
+        logger.info(f"Throughputs -- I/O: {io_thrpt}, Network: {net_thrpt}, Write: {write_thrpt}")
 
         if io_thrpt == exit_signal or write_thrpt == exit_signal:
-            print("Exiting Write Process 521")
+            logger.info("Exiting Write Process 521")
             exit_write_process()
-            print("Exited Write Process 523")
+            logger.info("Exited Write Process 523")
             return exit_signal, None
 
         self.prev_read_thread = self.current_read_thread
@@ -629,10 +495,7 @@ class PPOOptimizer:
         self.prev_read_throughput = self.current_read_throughput
         self.prev_network_throughput = self.current_network_throughput
         self.prev_reward = self.current_reward
-
-        # io_thrpt /= configurations['probing_sec']
-        # net_thrpt /= configurations['probing_sec']
-        # write_thrpt /= configurations['probing_sec']
+        
         
         self.current_read_thread = read_thread
         self.current_network_thread = network_thread
@@ -661,7 +524,6 @@ class PPOOptimizer:
         self.utility_write = utility_write
 
         final_state = self.get_state()
-        # print(f"State 651: {final_state.to_array()}")
 
         return reward, final_state
         
@@ -677,8 +539,6 @@ def multi_params_probing(params):
 
     params[0] = max(1,  int(np.round(params[0])))
     logger.info("Probing Parameters - [Network, I/O]: {0}".format(params))
-    # with open('threads_log_univ_bayes.csv', 'a') as f:
-    #         f.write(f"{params}\n")
 
     for i in range(len(transfer_process_status)):
         transfer_process_status[i] = 1 if i < params[0] else 0
@@ -692,9 +552,6 @@ def multi_params_probing(params):
     # Before
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
-    # used_before = get_dir_size(logger, tmpfs_dir)
-    # Sleep
-    # time.sleep(n_time)
     while (time.time() < n_time) and (file_processed.value < file_count):
         time.sleep(0.1)
 
@@ -711,8 +568,6 @@ def multi_params_probing(params):
         lr = rc/sc if sc>rc else 0
 
     plr_impact = B*lr
-    # cc_impact_lin = (K-1) * params[0]
-    # net_score = net_thrpt * (1 - plr_impact - cc_impact_lin)
     cc_impact_nl = K**params[0]
     net_score = (net_thrpt/cc_impact_nl) - (net_thrpt * plr_impact)
     net_score_value = np.round(net_score * (-1))
@@ -722,12 +577,6 @@ def multi_params_probing(params):
     if params[1] and rQueue:
         io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
         cc_impact_nl = K**params[1]
-        # storage_cost = 0
-        # curr_size = len(tQueue)
-        # if curr_size>2*net_cc:
-        #     storage_cost = (curr_size - 2*net_cc) / float(max(10, net_cc))
-
-        # io_score = io_thrpt/cc_impact_nl - io_thrpt*storage_cost
         io_score = io_thrpt/cc_impact_nl
         io_score_value = np.round(io_score * (-1))
     else:
@@ -736,15 +585,11 @@ def multi_params_probing(params):
     logger.info(f"Shared Memory -- Used: {used_disk}GB")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
 
-    # with open('throughputs_log_univ_bayes.csv', 'a') as f:
-    #         f.write(f"{io_thrpt}, {net_thrpt}\n")
-
     if not rQueue and not tQueue:
         net_score_value = exit_signal
 
     logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps")
     return [net_score_value, io_score_value, len(tQueue)] #score_value
-    # return (net_score_value+io_score_value) / 2
 
 
 def normal_transfer(params):
@@ -760,13 +605,13 @@ def normal_transfer(params):
     for i in range(len(io_process_status)):
         io_process_status[i] = 1 if (i < params[1] and file_copied.value<file_count) else 0
 
-    print(f"Transfer Process Status 649: {transfer_process_status}")
-    print(f"File Processed: {file_processed.value}, File Count: {file_count}")  
+    logger.info(f"Transfer Process Status 649: {transfer_process_status}")
+    logger.info(f"File Processed: {file_processed.value}, File Count: {file_count}")  
 
     while file_processed.value < file_count:
         time.sleep(0.1)
 
-    print("Exiting Write 652")
+    logger.info("Exiting Write 652")
 
 
 def run_optimizer(probing_func):
@@ -828,12 +673,6 @@ def report_network_throughput(start_time):
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        # if time_since_begining>10:
-        #     if sum(network_throughput_logs[-10:]) == 0:
-        #         logger.info(f"transfer queue: {tQueue}")
-        #         rQueue.clear()
-        #         tQueue.clear()
-
         if time_since_begining >= 0.1:
             total_bytes = np.sum(transfer_file_offsets)
             thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
@@ -843,20 +682,7 @@ def report_network_throughput(start_time):
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
             network_throughput_logs.append(curr_thrpt)
             logger.info(f"Network Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
-            # if curr_thrpt < 0:
-            #     with open('anomaly.txt', 'a') as f:
-            #         f.write('======================\n')
-            #         f.write(f"time_since_begining = {time_since_begining}\n")
-            #         f.write(f"previous_time, previous_total = {previous_time}, {previous_total}\n")
-            #         f.write(f"previous_transfer_file_offsets = {previous_transfer_file_offsets}\n")
-            #         f.write(f"current_transfer_file_offsets = {list(transfer_file_offsets)}\n")
-            #         f.write(f"total_bytes = {total_bytes}\n")
-            #         f.write(f"thrpt = {thrpt}\n")
-            #         f.write(f"curr_total = {curr_total}\n")
-            #         f.write(f"curr_thrpt = {curr_thrpt}\n")
-            #         f.write(f"network_throughput_logs = {network_throughput_logs}\n")
             previous_time, previous_total = time_since_begining, total_bytes
-            previous_transfer_file_offsets = list(transfer_file_offsets)
             t2 = time.time()
             fname = 'timed_log_network_ppo_' + configurations['model_version'] +'.csv'
             with open(fname, 'a') as f:
@@ -900,7 +726,7 @@ def graceful_exit(signum=None, frame=None):
         logger.debug(e)
 
     # fetch_logs_via_socket()
-    print("Exiting Sender....")
+    logger.info("Exiting Sender....")
     host, port = configurations["sender"]["host"], configurations["sender"]["port"]
     start_log_listener(configurations, host=host, port=int(port))
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
@@ -908,13 +734,13 @@ def graceful_exit(signum=None, frame=None):
 
 def debug_concurrency():
     import threading
-    print("=== Threads ===")
+    logger.info("=== Threads ===")
     for t in threading.enumerate():
-        print(f" - {t.name} (alive={t.is_alive()}, daemon={t.daemon})")
+        logger.info(f" - {t.name} (alive={t.is_alive()}, daemon={t.daemon})")
 
-    print("=== Processes ===")
+    logger.info("=== Processes ===")
     for c in mp.active_children():
-        print(f" - {c.name} PID={c.pid} (alive={c.is_alive()})")
+        logger.info(f" - {c.name} PID={c.pid} (alive={c.is_alive()})")
 
 
 if __name__ == '__main__':
@@ -933,7 +759,6 @@ if __name__ == '__main__':
     net_cc = configurations["max_cc"]["network"]
     net_cc = net_cc if net_cc>0 else mp.cpu_count()
 
-    # print(f"Network CC: {net_cc}")
 
     io_cc = configurations["max_cc"]["io"]
     io_cc = io_cc if io_cc>0 else mp.cpu_count()
@@ -985,9 +810,7 @@ if __name__ == '__main__':
     root_dir = configurations["data_dir"]
     tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
     probing_time = configurations["probing_sec"]
-    # file_names = os.listdir(root_dir)[:] * configurations["multiplier"]
     file_names = [f"{fname}-{i}" for fname in os.listdir(root_dir) for i in range(1, configurations["multiplier"] + 1)]
-    # file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
     file_sizes = [os.path.getsize(os.path.join(root_dir, fname.split('-')[0])) for fname in file_names]
     file_count = len(file_names)
     network_throughput_logs = manager.list()
@@ -1003,7 +826,7 @@ if __name__ == '__main__':
 
     file_processed = Value('i', 0)
     file_copied = Value('i', 0)
-    print(f"File Count: {file_count} in {root_dir}")
+    logger.info(f"File Count: {file_count} in {root_dir}")
     # io_weight, net_weight = 1, 1
 
     HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
@@ -1025,9 +848,6 @@ if __name__ == '__main__':
 
     for i in range(file_count):
         rQueue[i] = 0
-
-    # Code for finetuning; making the file count infinite
-    # file_count = 1000000
 
     copy_workers = [mp.Process(target=copy_file, args=(i,)) for i in range(io_cc)]
     for p in copy_workers:
@@ -1080,6 +900,6 @@ if __name__ == '__main__':
     host, port = configurations["sender"]["host"], configurations["sender"]["port"]
     start_log_listener(configurations, host=host, port=int(port))
     
-    print(f'tmpfs_dir: {tmpfs_dir}')
+    logger.info(f'tmpfs_dir: {tmpfs_dir}')
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
     debug_concurrency()

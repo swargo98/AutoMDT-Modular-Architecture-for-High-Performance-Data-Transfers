@@ -31,7 +31,7 @@ configurations = {
     "mp_opt": True, # use true for ppo, false for gradient
     "method": "ppo", # options: [gradient, ppo]
     "model_version": 'random', # just a tag for the model
-    "mode": 'inference',
+    "mode": 'inference', # random or inference
 }
 
 mv = configurations["model_version"]

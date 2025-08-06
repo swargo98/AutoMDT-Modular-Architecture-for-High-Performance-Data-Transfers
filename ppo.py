@@ -12,19 +12,16 @@ from config_sender import configurations
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# print(f"Using device: {device}")
 
 def save_model(agent, filename_policy, filename_value):
     torch.save(agent.policy.state_dict(), filename_policy)
     torch.save(agent.value_function.state_dict(), filename_value)
-    # print("Model saved successfully.")
 
 
 def load_model(agent, filename_policy, filename_value):
     agent.policy.load_state_dict(torch.load(filename_policy, map_location=torch.device('cpu')))
     agent.policy_old.load_state_dict(agent.policy.state_dict())
     agent.value_function.load_state_dict(torch.load(filename_value, map_location=torch.device('cpu')))
-    # print("Model loaded successfully.")
 
 exit_signal = 10 ** 10
 
@@ -107,25 +104,16 @@ class NetworkOptimizationEnv(gym.Env):
 
     def step(self, action, is_random=False):
         new_thread_counts = np.clip(np.round(action), self.thread_limits[0], self.thread_limits[1]).astype(np.int32)
-        print(new_thread_counts)
         
         if is_random:
             read_thread = np.random.randint(5, self.thread_limits[1]-1)
             network_thread = np.random.randint(5, self.thread_limits[1]-1)
             write_thread = np.random.randint(5, self.thread_limits[1]-1)
             new_thread_counts = [read_thread, network_thread, write_thread]
-
-        ######COMMENT OUT THESE LINES AFTER EXPERMINET
-
-        # read_thread = 3
-        # network_thread = 3
-        # write_thread = 3
-        # new_thread_counts = [read_thread, network_thread, write_thread]
         
         # Compute utility and update state
         utility, self.state = self.get_utility_value(new_thread_counts)
 
-        print(f"Utility: {utility}")
 
         if utility == exit_signal:
             return self.state, exit_signal, True, {}
@@ -152,14 +140,12 @@ class NetworkOptimizationEnv(gym.Env):
         return self.state.to_array(), reward, done, {}
     
     def reset(self, is_inference = False):
-        print(is_inference)
         if not is_inference:
             read_thread = np.random.randint(3, self.thread_limits[1]-1)
             network_thread = np.random.randint(3, self.thread_limits[1]-1)
             write_thread = np.random.randint(3, self.thread_limits[1]-1)
             sender_buffer_remaining_capacity = self.state.sender_buffer_remaining_capacity
             receiver_buffer_remaining_capacity = self.state.receiver_buffer_remaining_capacity
-            print(f"READ: {read_thread}; NETWORK: {network_thread}; WRITE: {write_thread}")
 
             self.state = SimulatorState(
                 sender_buffer_remaining_capacity=sender_buffer_remaining_capacity,
@@ -347,17 +333,9 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False, is_random=False
         exit_flag = False
         for t in range(env.max_steps):
             import time
-            t1 = time.time()
             action, action_logprob = agent.select_action(state, is_inference)
-            t2 = time.time()
             next_state, reward, done, _ = env.step(action, is_random)
-            t3 = time.time()
 
-            fname = 'time_log_inference_ppo_' + configurations['model_version'] +'.csv'
-            with open(fname, 'a') as f:
-                f.write(f"{np.round(t2-t1, 10)}, {np.round(t3-t2, 10)}, {np.round(t3-t1, 10)}\n")
-
-            print(f"Reward: {reward}")
 
             if reward == exit_signal:
                 exit_flag = True
@@ -374,20 +352,14 @@ def train_ppo(env, agent, max_episodes=1000, is_inference=False, is_random=False
         if not done:
             agent.update(memory)
 
-        # print(f"Episode {episode}\tLast State: {state}\tReward: {reward}")
-        with open('episode_rewards_residual_cl_finetune.csv', 'a') as f:
-                f.write(f"Episode {episode}, Last State: {np.round(state)}, Reward: {reward}\n")
-
         memory.clear()
         if exit_flag:
             break
         total_rewards.append(episode_reward)
         if episode % 10 == 0:
             avg_reward = np.mean(total_rewards[-10:])/env.max_steps
-            print(f"Episode {episode}\tAverage Reward: {avg_reward:.2f}")
             if not is_inference:
                 save_model(agent, "models/"+ configurations['model_version'] +"_finetune_policy_"+ str(episode) +".pth", "models/"+ configurations['model_version'] +"_finetune_value_"+ str(episode) +".pth")
-                print("Model saved successfully.")
                 if avg_reward > best_avg_reward:
                     best_avg_reward = avg_reward
                     save_model(agent, "best_models/"+ configurations['model_version'] +"_finetune_policy.pth", "best_models/"+ configurations['model_version'] +"_finetune_value.pth")
@@ -406,123 +378,3 @@ def plot_rewards(rewards, title, pdf_file):
     
     plt.savefig(pdf_file)  
     plt.close()
-
-import csv
-
-import pandas as pd
-
-def plot_threads_csv(threads_file='threads_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', optimals = None, output_file='threads_plot.png'):
-    optimal_read, optimal_network, optimal_write, _ = optimals
-    data = []
-
-    # Read data from threads_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv
-    with open(threads_file, 'r') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if len(row) < 3:
-                continue
-            data.append([float(value) for value in row[:3]])
-
-    df = pd.DataFrame(data, columns=['Read Threads', 'Network Threads', 'Write Threads'])
-
-    # Compute rolling averages
-    rolling_read = df['Read Threads'].rolling(window=15).mean()
-    rolling_network = df['Network Threads'].rolling(window=15).mean()
-    rolling_write = df['Write Threads'].rolling(window=15).mean()
-
-    # Create subplots for each type
-    plt.figure(figsize=(12, 12))
-
-    plt.subplot(3, 1, 1)
-    plt.plot(rolling_read, label='Read Threads (5-point MA)')
-    plt.title('Read Threads (Stable: '+ str(optimal_read) +')')
-    plt.xlabel('Iteration')
-    plt.ylabel('Thread Count')
-    plt.grid(True)
-    plt.legend()
-
-    plt.subplot(3, 1, 2)
-    plt.plot(rolling_network, label='Network Threads (5-point MA)', color='orange')
-    plt.title('Network Threads (Stable: '+ str(optimal_network) +')')
-    plt.xlabel('Iteration')
-    plt.ylabel('Thread Count')
-    plt.grid(True)
-    plt.legend()
-
-    plt.subplot(3, 1, 3)
-    plt.plot(rolling_write, label='Write Threads (5-point MA)', color='green')
-    plt.title('Write Threads (Stable: '+ str(optimal_write) +')')
-    plt.xlabel('Iteration')
-    plt.ylabel('Thread Count')
-    plt.grid(True)
-    plt.legend()
-
-    plt.tight_layout()
-    plt.savefig(output_file)
-    plt.close()
-    # print(f"Saved thread count plot to {output_file}")
-
-    # save average thread count to a file
-    with open('average_threads_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', 'a') as f:
-        f.write(f"optimal: {optimal_read}; Actual: {np.mean(df['Read Threads'])}\n")
-        f.write(f"optimal: {optimal_network}; Actual: {np.mean(df['Network Threads'])}\n")
-        f.write(f"optimal: {optimal_write}; Actual: {np.mean(df['Write Threads'])}\n")
-
-# Function to plot throughputs with rolling averages
-def plot_throughputs_csv(throughputs_file='throughputs_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', optimals = None, output_file='throughputs_plot.png'):
-    optimal_throughput = optimals[-1]
-    data = []
-
-    # Read data from throughputs_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv
-    with open(throughputs_file, 'r') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if len(row) < 3:
-                continue
-            data.append([float(value) for value in row[:3]])
-
-    df = pd.DataFrame(data, columns=['Read Throughput', 'Network Throughput', 'Write Throughput'])
-
-    # Compute rolling averages
-    rolling_read = df['Read Throughput'].rolling(window=15).mean()
-    rolling_network = df['Network Throughput'].rolling(window=15).mean()
-    rolling_write = df['Write Throughput'].rolling(window=15).mean()
-
-    # Create subplots for each type
-    plt.figure(figsize=(12, 12))
-
-    plt.subplot(3, 1, 1)
-    plt.plot(rolling_read, label='Read Throughput')
-    plt.title('Read Throughput (Stable: '+ str(optimal_throughput) +')')
-    plt.xlabel('Iteration')
-    plt.ylabel('Throughput')
-    plt.grid(True)
-    plt.legend()
-
-    plt.subplot(3, 1, 2)
-    plt.plot(rolling_network, label='Network Throughput', color='orange')
-    plt.title('Network Throughput (Stable: '+ str(optimal_throughput) +')')
-    plt.xlabel('Iteration')
-    plt.ylabel('Throughput')
-    plt.grid(True)
-    plt.legend()
-
-    plt.subplot(3, 1, 3)
-    plt.plot(rolling_write, label='Write Throughput', color='green')
-    plt.title('Write Throughput (Stable: '+ str(optimal_throughput) +')')
-    plt.xlabel('Iteration')
-    plt.ylabel('Throughput')
-    plt.grid(True)
-    plt.legend()
-
-    plt.tight_layout()
-    plt.savefig(output_file)
-    plt.close()
-    # print(f"Saved throughput plot to {output_file}")
-
-    # save average throughput to a file
-    with open('average_throughput_dicrete_w_history_minibatch_mlp_deepseek_v' + configurations['model_version'] +'.csv', 'a') as f:
-        f.write(f"{np.mean(df['Read Throughput'])}\n")
-        f.write(f"{np.mean(df['Network Throughput'])}\n")
-        f.write(f"{np.mean(df['Write Throughput'])}\n")
-
