@@ -9,10 +9,6 @@ configurations = {
     },
     "rpc_port":"5002",
     "data_dir": "/mnt/nvme0n1/dest/",
-    "bayes": {
-        "initial_run": 3,
-        "num_of_exp": -1 #-1 for infinite
-    },
     "max_cc": 30,
     "K": 1.02,
     "probing_sec": 3, # probing interval in seconds
@@ -23,8 +19,6 @@ configurations = {
         "maximum": 1000,
         "threshold": 1,
     },
-    'competing_transfer': 0,
-    "method": "ppo",
-    # "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    "method": "ppo", # options: [gradient, ppo]
     "model_version": 'residual',
 }
