@@ -13,9 +13,15 @@ from config_sender import configurations
 from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, gradient_multivariate
 from utils import tcp_stats, run, available_space, get_dir_size
 from ppo import SimulatorState, NetworkOptimizationEnv, PPOAgentContinuous, load_model, train_ppo, plot_rewards, plot_threads_csv, plot_throughputs_csv
+import contextlib
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+def send_file_count(host: str, port: int, total: int) -> None:
+    """One-shot handshake that tells the receiver how many source files exist."""
+    with contextlib.closing(socket.socket()) as s:
+        s.connect((host, port))
+        s.sendall(f"COUNT,{total}\n".encode())
 
 def copy_file(process_id):
     global rQueue, tQueue, io_process_status, io_file_offsets, file_names, file_sizes, memory_limit, io_limit, chunk_size, file_transfer, file_processed, file_copied
@@ -1007,6 +1013,8 @@ if __name__ == '__main__':
 
     HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
     RCVR_ADDR = str(HOST) + ":" + str(PORT)
+
+    send_file_count(HOST, PORT, file_count)
 
     try:
         os.mkdir(tmpfs_dir)

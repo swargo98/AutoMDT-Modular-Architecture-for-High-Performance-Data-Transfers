@@ -15,6 +15,19 @@ from utils import available_space, get_dir_size, run
 from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, exit_signal
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+def receive_file_count(sock) -> None:
+    client, _ = sock.accept()          # blocks until sender connects
+    header = []
+    while True:                        # read until newline
+        ch = client.recv(1)
+        if not ch or ch == b'\n':
+            break
+        header.append(ch)
+    header = b''.join(header).decode()
+    if header.startswith("COUNT,"):
+        expected_total.value = int(header.split(",")[1])
+        print(f"[Handshake] expecting {expected_total.value} files")
+    client.close()
 
 def move_file(process_id):
     while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
@@ -530,9 +543,10 @@ if __name__ == '__main__':
     transfer_done = mp.Value("i", 0)
     io_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
     transfer_file_offsets = mp.Manager().dict()
-    io_file_offsets = mp.Manager().dict() ## figure out file_count
+    io_file_offsets = mp.Manager().dict()
     throughput_logs = mp.Manager().list()
     io_throughput_logs = mp.Manager().list()
+    expected_total = mp.Value("i", 0)
 
     mQueue = mp.Manager().list()
     start, end = mp.Value("i", 0), mp.Value("i", 0)
@@ -561,6 +575,8 @@ if __name__ == '__main__':
     sock = socket.socket()
     sock.bind((HOST, PORT))
     sock.listen(num_workers)
+    receive_file_count(sock)
+
     transfer_process_status = mp.Array("i", [0 for _ in range(num_workers)])
     transfer_workers = [mp.Process(target=receive_file, args=(sock, i,)) for i in range(num_workers)]
     for p in transfer_workers:
