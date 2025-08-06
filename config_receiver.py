@@ -15,7 +15,7 @@ configurations = {
     "probing_sec": 3, # probing interval in seconds
     "file_transfer": True,
     "loglevel": "info",
-    "io_limit": 150, # I/O limit (Mbps) per thread
+    "io_limit": -1, # I/O limit (Mbps) per thread
     "memory_use": {
         "maximum": 1000,
         "threshold": 1,

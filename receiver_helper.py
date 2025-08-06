@@ -9,7 +9,7 @@ def push_logs_to_sender(
     dest_host: str,
     dest_port: int = 6060,
     pattern: str = "*_ppo_*.csv",
-    log_dir: pathlib.Path | str = pathlib.Path.cwd(),
+    log_dir: str = pathlib.Path.cwd(),
     timeout: int = 30,
 ) -> None:
     """
