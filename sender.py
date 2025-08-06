@@ -25,7 +25,10 @@ def copy_file(process_id):
             try:
                 used = get_dir_size(logger, tmpfs_dir)
                 if used < memory_limit:
-                    file_id, offset = rQueue.popitem()
+                    file_id, offset = rQueue.popitem() if rQueue else (None, None)
+                    if file_id is None:
+                        time.sleep(0.1)
+                        continue
                     if file_transfer:
                         fname = file_names[file_id]
                         # print(f"Copying 30: {fname}")
@@ -125,9 +128,12 @@ def transfer_file(process_id):
                 # logger.exception(e)
                 continue
 
-            while transfer_process_status[process_id] == 1:
+            while tQueue and transfer_process_status[process_id] == 1:
                 try:
-                    file_id, offset = tQueue.popitem()
+                    file_id, offset = tQueue.popitem() if tQueue else (None, None)
+                    if file_id is None:
+                        time.sleep(0.1)
+                        continue
                     # print(f"Popped File ID: {file_id}, Offset: {offset}")
                     # if transfer_file_offsets[file_id] > offset:
                     #     with open('anomaly2.txt', 'a') as f:
@@ -609,7 +615,7 @@ class PPOOptimizer:
             print("Exiting Write Process 521")
             exit_write_process()
             print("Exited Write Process 523")
-            return exit_signal, None, None, None
+            return exit_signal, None
 
         self.prev_read_thread = self.current_read_thread
         self.prev_network_thread = self.current_network_thread
@@ -881,12 +887,12 @@ def report_io_throughput(start_time):
                 f.write(f"{t2}, {time_since_begining}, {curr_thrpt}, {sum(io_process_status)}\n")
             time.sleep(max(0, 1 - (t2-t1)))
 
-import pathlib
+import pathlib, struct, json
 
 def fetch_logs_via_socket():
     host, port = configurations["receiver"]["host"], configurations['log_port']
     local_model = configurations["model_version"]
-    dest_dir = pathlib.Path(configurations.get("log_dir", "./logs"))
+    dest_dir = pathlib.Path(configurations.get("log_dir", ""))
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     with socket.create_connection((host, port), timeout=60) as s:
@@ -1106,7 +1112,8 @@ if __name__ == '__main__':
         if p.is_alive():
             p.terminate()
             p.join(timeout=0.1)
-    print(f'tmpfs_dir: {tmpfs_dir}')
+    time.sleep(90)
     fetch_logs_via_socket()
+    print(f'tmpfs_dir: {tmpfs_dir}')
     shutil.rmtree(tmpfs_dir, ignore_errors=True)
     debug_concurrency()

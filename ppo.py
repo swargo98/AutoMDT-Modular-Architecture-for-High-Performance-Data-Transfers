@@ -128,7 +128,7 @@ class NetworkOptimizationEnv(gym.Env):
         print(f"Utility: {utility}")
 
         if utility == exit_signal:
-            return self.state.to_array(), exit_signal, True, {}
+            return self.state, exit_signal, True, {}
 
         # Penalize actions that hit thread limits
         penalty = 0
