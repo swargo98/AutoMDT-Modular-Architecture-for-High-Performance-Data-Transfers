@@ -452,7 +452,7 @@ import pathlib, struct, json
 
 def _serve_logs_once():
     """Send every *.csv log in CWD, one connection, then exit."""
-    host, port = configurations["receiver"]["host"], configurations['log_port']
+    host, port = configurations["receiver"]["host"], int(configurations['log_port'])
     log_dir = pathlib.Path.cwd()
 
     # Pick files by *pattern*, not hard-coded names
