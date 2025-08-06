@@ -545,6 +545,8 @@ if __name__ == '__main__':
     root_dir = configurations["data_dir"]
     if not os.path.exists(root_dir):
         os.makedirs(root_dir)
+    if not os.path.exists('logs/'):
+        os.makedirs('logs/')
     tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
     probing_time = configurations["probing_sec"]
     HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]

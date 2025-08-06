@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-output_dir="src"       # Output directory to store the files
+output_dir="/mnt/nvme0n1/src"       # Output directory to store the files
 file_count=200          # Number of files to create
 file_size=100           # Size of each file in MB
 parallel_jobs=10        # Set parallel jobs to the number of CPU cores
