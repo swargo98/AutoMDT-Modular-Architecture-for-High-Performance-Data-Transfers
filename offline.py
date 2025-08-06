@@ -733,14 +733,23 @@ if __name__ == '__main__':
         os.remove('throughputs'+ configurations['model_version'] +'.csv')
     
     oneGB = 1024
-    sender_buffer_capacity=12 * oneGB
-    receiver_buffer_capacity=2 * oneGB
-    read_throughput_per_thread=839
-    network_throughput_per_thread=272
-    write_throughput_per_thread=744
-    read_bandwidth=14395
-    network_bandwidth=4396
-    write_bandwidth=9228
+
+    # ── NEW: derive parameters straight from the logs ──
+    from log_stats import extract_log_metrics          # if you saved the helper elsewhere
+    metrics = extract_log_metrics(configurations['model_version'])
+    print(f"Metrics extracted: {metrics}")
+
+    sender_buffer_capacity      = metrics['sender_buffer_capacity']
+    receiver_buffer_capacity    = metrics['receiver_buffer_capacity']
+
+    read_throughput_per_thread      = metrics['read_throughput_per_thread']
+    network_throughput_per_thread   = metrics['network_throughput_per_thread']
+    write_throughput_per_thread     = metrics['write_throughput_per_thread']
+
+    read_bandwidth      = metrics['read_bandwidth']
+    network_bandwidth   = metrics['network_bandwidth']
+    write_bandwidth     = metrics['write_bandwidth']
+
 
     bottleneck = min(read_bandwidth, network_bandwidth, write_bandwidth)
     optimal_read_thread = bottleneck/read_throughput_per_thread
