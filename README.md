@@ -12,6 +12,8 @@ This repository accompanies our INDIS ’25 submission:
 Low Overhead Data Transfers**  
 > Rasman M. Swargo *et al.*, INDIS @ SC 25
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16757552.svg)](https://doi.org/10.5281/zenodo.16757552)
+
 ---
 
 ## Quick start (two‑machine setup)
