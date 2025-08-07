@@ -1,0 +1,34 @@
+{
+    "title": "Modular Architecture for High-Performance and Low-Overhead Data Transfers",
+    "description": "Source code and experiments for AutoMDT, a DRL-driven optimizer that jointly tunes read, network and write concurrency. Offline-trained with a custom I/O-network simulator it converges in ~45 min and cuts transfer time by up to 68 %. Companion artifact for INDIS @ SC ’25.",
+    "creators": [
+      {
+        "name": "Swargo, Rasman Mubtasim",
+        "affiliation": "Missouri University of Science and Technology",
+        "orcid": "0009-0002-2725-5161"
+      },
+      {
+        "name": "Arslan, Engin",
+        "affiliation": "Meta"
+      },
+      {
+        "name": "Arifuzzaman, Md",
+        "affiliation": "Missouri University of Science and Technology"
+      }
+    ],
+    "license": "MIT",
+    "keywords": [
+      "deep-reinforcement-learning",
+      "data-transfer",
+      "concurrency-control",
+      "HPC",
+      "PPO"
+    ],
+    "related_identifiers": [
+      {
+        "identifier": "https://github.com/swargo98/AutoMDT-Modular-Architecture-for-High-Performance-Data-Transfers",
+        "relation": "isSupplementTo",
+        "scheme": "url"
+      }
+    ]
+  }  
