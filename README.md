@@ -77,18 +77,27 @@ All versions are pinned in **`requirements.txt`**.
 
 ## Citing
 
-This section will be updated soon.
-<!-- If you build on AutoMDT, please cite:
+If you build on AutoMDT, please cite:
 
 ```bibtex
-@inproceedings{Swargo2025AutoMDT,
-  title     = {A Modular DRL Architecture for High-Performance and Low-Overhead Data Transfers},
-  author    = {Rasman Mubtasim Swargo and Md Arifuzzaman and Engin Arslan},
-  booktitle = {Proc. INDIS (SC Workshop)},
-  year      = {2025}
+@inproceedings{10.1145/3731599.3767446,
+author = {Swargo, Rasman Mubtasim and Arslan, Engin and Arifuzzaman, Md},
+title = {Modular Architecture for High-Performance and Low Overhead Data Transfers},
+year = {2025},
+isbn = {9798400718717},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3731599.3767446},
+doi = {10.1145/3731599.3767446},
+pages = {939–948},
+numpages = {10},
+keywords = {data transfer optimization, high-performance networks, concurrency control, reinforcement learning, HPC},
+location = {
+},
+series = {SC Workshops '25}
 }
 
-``` -->
+```
 
 ---
 
